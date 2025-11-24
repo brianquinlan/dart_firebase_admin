@@ -1,10 +1,10 @@
 import 'package:googleapis/storage/v1.dart' as storage_v1;
+import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
-class MockHttpClient extends Mock implements http.Client {}
+class MockAuthClient extends Mock implements auth.AuthClient {}
 
 class MockStorageApi extends Mock implements storage_v1.StorageApi {}
 
@@ -20,12 +20,15 @@ class TestStorage extends Storage {
 
   TestStorage(this.mockClient)
       : super(StorageOptions(
-          authClient: Future.value(MockHttpClient() as http.Client),
+          authClient: MockAuthClient(),
           useAuthWithCustomEndpoint: false,
         ));
 
   @override
-  Future<storage_v1.StorageApi> get client async => mockClient;
+  Future<storage_v1.StorageApi> get storageClient async => mockClient;
+
+  @override
+  Future<auth.AuthClient> get authClient async => MockAuthClient();
 }
 
 void main() {
@@ -103,7 +106,7 @@ void main() {
         );
 
         expect(hmacKey.accessId, 'test-access-id');
-        expect(hmacKey.projectId, 'test-project');
+        expect(hmacKey.metadata.projectId, 'test-project');
         expect(hmacKey.storage, storage);
         expect(hmacKey.metadata.accessId, 'test-access-id');
         expect(hmacKey.metadata.projectId, 'test-project');

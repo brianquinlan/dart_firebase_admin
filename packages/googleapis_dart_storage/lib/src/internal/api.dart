@@ -264,7 +264,7 @@ class ApiExecutor {
       } catch (e) {
         // Convert DetailedApiRequestError to ApiError before retry logic
         final apiError = e is ApiError ? e : ApiError.fromException(e);
-        
+
         attempt++;
         final elapsed = DateTime.now().difference(start);
         if (attempt > _effectiveRetry.maxRetries ||

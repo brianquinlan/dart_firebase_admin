@@ -4,10 +4,11 @@ import 'package:googleapis/storage/v1.dart' as storage_v1;
 import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
 import 'package:googleapis_dart_storage/src/internal/api.dart';
 import 'package:http/http.dart' as http;
+import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
-class MockHttpClient extends Mock implements http.Client {}
+class MockAuthClient extends Mock implements auth.AuthClient {}
 
 class MockStorageApi extends Mock implements storage_v1.StorageApi {}
 
@@ -29,12 +30,15 @@ class TestStorage extends Storage {
   TestStorage(this.mockClient, {String? projectId})
       : super(_TestStorageOptions(
           projectId: projectId ?? 'test-project',
-          authClient: Future.value(MockHttpClient() as http.Client),
+          authClient: MockAuthClient(),
           useAuthWithCustomEndpoint: false,
         ));
 
   @override
-  Future<storage_v1.StorageApi> get client async => mockClient;
+  Future<storage_v1.StorageApi> get storageClient async => mockClient;
+
+  @override
+  Future<auth.AuthClient> get authClient async => MockAuthClient();
 }
 
 // Helper class to create StorageOptions with projectId for testing
@@ -65,12 +69,13 @@ class _TestStorageOptions extends StorageOptions {
     String? apiEndpoint,
     Crc32Generator? crc32cGenerator,
     RetryOptions? retryOptions,
-    FutureOr<http.Client>? authClient,
+    FutureOr<auth.AuthClient>? authClient,
     bool? useAuthWithCustomEndpoint,
     String? universeDomain,
+    String? projectId,
   }) {
     return _TestStorageOptions(
-      projectId: _projectId,
+      projectId: projectId ?? _projectId,
       apiEndpoint: apiEndpoint ?? this.apiEndpoint,
       crc32cGenerator: crc32cGenerator ?? this.crc32cGenerator,
       retryOptions: retryOptions ?? this.retryOptions,
@@ -97,20 +102,19 @@ void main() {
 
     test('should create with all parameters', () {
       final retryOptions = const RetryOptions(maxRetries: 5);
-      final mockClient = MockHttpClient();
-      final authClient = Future.value(mockClient as http.Client);
+      final mockClient = MockAuthClient();
 
       final options = StorageOptions(
         apiEndpoint: 'https://custom.example.com',
         retryOptions: retryOptions,
-        authClient: authClient,
+        authClient: mockClient,
         useAuthWithCustomEndpoint: true,
         universeDomain: 'example.com',
       );
 
       expect(options.apiEndpoint, 'https://custom.example.com');
       expect(options.retryOptions, retryOptions);
-      expect(options.authClient, authClient);
+      expect(options.authClient, mockClient);
       expect(options.useAuthWithCustomEndpoint, true);
       expect(options.universeDomain, 'example.com');
     });
@@ -475,7 +479,7 @@ void main() {
         final hmacKey = storage.hmacKey('access-id', hmacKeyOptions);
 
         expect(hmacKey, isA<HmacKey>());
-        expect(hmacKey.projectId, 'custom-project');
+        expect(hmacKey.metadata.projectId, 'custom-project');
       });
 
       test('should throw Exception when accessId is empty', () {
@@ -570,7 +574,6 @@ void main() {
 
         final result = await storage.createBucket(
           bucketMetadata,
-          projectId: 'test-project',
         );
 
         expect(result, isA<Bucket>());
@@ -614,7 +617,7 @@ void main() {
             )).thenThrow(error);
 
         expect(
-          () => storage.createBucket(bucketMetadata, projectId: 'test-project'),
+          () => storage.createBucket(bucketMetadata),
           throwsA(isA<ApiError>().having(
             (e) => e.message,
             'message',
@@ -666,7 +669,7 @@ void main() {
 
         expect(result, isA<HmacKey>());
         expect(result.accessId, 'ACCESS_ID');
-        expect(result.projectId, 'test-project');
+        expect(result.metadata.projectId, 'test-project');
         verify(() => mockHmacKeys.create(
               'test-project',
               'test@example.com',
