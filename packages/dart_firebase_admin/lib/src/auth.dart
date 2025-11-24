@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
@@ -15,12 +17,13 @@ import 'app.dart';
 import 'object_utils.dart';
 import 'utils/crypto_signer.dart';
 import 'utils/jwt.dart';
+import 'utils/project_id_provider.dart';
 import 'utils/utils.dart';
 import 'utils/validator.dart';
 
 part 'auth/action_code_settings_builder.dart';
 part 'auth/auth.dart';
-part 'auth/auth_api_request.dart';
+part 'auth/auth_request_handler.dart';
 part 'auth/auth_config.dart';
 part 'auth/auth_exception.dart';
 part 'auth/base_auth.dart';
@@ -29,3 +32,4 @@ part 'auth/token_generator.dart';
 part 'auth/token_verifier.dart';
 part 'auth/user.dart';
 part 'auth/user_import_builder.dart';
+part 'auth/auth_http_client.dart';

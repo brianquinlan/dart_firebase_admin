@@ -1,37 +1,16 @@
-import 'dart:async';
-import 'dart:convert';
+part of 'messaging.dart';
 
-import 'package:googleapis/fcm/v1.dart' as fmc1;
-import 'package:http/http.dart';
-import 'package:meta/meta.dart';
+/// Request handler for Firebase Cloud Messaging API operations.
+///
+/// Handles complex business logic, request/response transformations,
+/// and validation. Delegates simple API calls to [FirebaseMessagingHttpClient].
+class FirebaseMessagingRequestHandler {
+  FirebaseMessagingRequestHandler(
+    FirebaseApp app, {
+    FirebaseMessagingHttpClient? httpClient,
+  }) : _httpClient = httpClient ?? FirebaseMessagingHttpClient(app);
 
-import 'app.dart';
-
-part 'messaging/fmc_exception.dart';
-part 'messaging/messaging_api.dart';
-part 'messaging/messaging_api_request_internal.dart';
-
-const _fmcMaxBatchSize = 500;
-
-// const _fcmTopicManagementHost = 'iid.googleapis.com';
-// const _fcmTopicManagementAddPath = '/iid/v1:batchAdd';
-// const _fcmTopicManagementRemovePath = '/iid/v1:batchRemove';
-
-/// An interface for interacting with the Firebase Cloud Messaging service.
-class Messaging {
-  /// An interface for interacting with the Firebase Cloud Messaging service.
-  Messaging(
-    this.firebase, {
-    @internal FirebaseMessagingRequestHandler? requestHandler,
-  }) : _requestHandler =
-            requestHandler ?? FirebaseMessagingRequestHandler(firebase);
-
-  /// The app associated with this Messaging instance.
-  final FirebaseAdminApp firebase;
-
-  final FirebaseMessagingRequestHandler _requestHandler;
-
-  String get _parent => 'projects/${firebase.projectId}';
+  final FirebaseMessagingHttpClient _httpClient;
 
   /// Sends the given message via FCM.
   ///
@@ -42,14 +21,15 @@ class Messaging {
   /// Returns a unique message ID string after the message has been successfully
   /// handed off to the FCM service for delivery.
   Future<String> send(Message message, {bool? dryRun}) {
-    return _requestHandler.v1(
-      (client) async {
+    return _httpClient.v1(
+      (client, projectId) async {
+        final parent = _httpClient.buildParent(projectId);
         final response = await client.projects.messages.send(
           fmc1.SendMessageRequest(
             message: message._toProto(),
             validateOnly: dryRun,
           ),
-          _parent,
+          parent,
         );
 
         final name = response.name;
@@ -80,8 +60,8 @@ class Messaging {
   /// - [dryRun]: Whether to send the messages in the dry-run
   ///   (validation only) mode.
   Future<BatchResponse> sendEach(List<Message> messages, {bool? dryRun}) {
-    return _requestHandler.v1(
-      (client) async {
+    return _httpClient.v1(
+      (client, projectId) async {
         if (messages.isEmpty) {
           throw FirebaseMessagingAdminException(
             MessagingClientErrorCode.invalidArgument,
@@ -95,6 +75,7 @@ class Messaging {
           );
         }
 
+        final parent = _httpClient.buildParent(projectId);
         final responses = await Future.wait<SendResponse>(
           messages.map((message) async {
             final response = client.projects.messages.send(
@@ -102,7 +83,7 @@ class Messaging {
                 message: message._toProto(),
                 validateOnly: dryRun,
               ),
-              _parent,
+              parent,
             );
 
             return response.then(
@@ -139,7 +120,7 @@ class Messaging {
   /// Sends the given multicast message to all the FCM registration tokens
   /// specified in it.
   ///
-  /// This method uses the [Messaging.sendEach] API under the hood to send the given
+  /// This method uses the [sendEach] API under the hood to send the given
   /// message to all the target recipients. The responses list obtained from the
   /// return value corresponds to the order of tokens in the `MulticastMessage`.
   /// An error from this method or a `BatchResponse` with all failures indicates a total
