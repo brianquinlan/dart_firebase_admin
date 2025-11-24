@@ -244,7 +244,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   final String name;
 
-  Bucket._(Storage storage, String name, [BucketOptions? options ])
+  Bucket._(Storage storage, String name, [BucketOptions? options])
       :
         // Allow for "gs://"-style input, and strip any trailing slashes.
         name = name
@@ -263,6 +263,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   @override
   Future<Bucket> create(BucketMetadata bucket) async {
     final created = await storage.createBucket(bucket);
+
     // Modify the current instance rather than creating a new one.
     setInstanceMetadata(created.metadata);
     id = created.id;
@@ -271,12 +272,12 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   @override
   Future<void> delete({DeleteOptions? options}) {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryBucketMutation,
     );
-    return executor.retry<void>(
+    return api.execute<void>(
       (client) async {
         try {
           // Use provided userProject or fall back to instance-level userProject
@@ -301,8 +302,8 @@ class Bucket extends ServiceObject<BucketMetadata>
   Future<BucketMetadata> getMetadata({String? userProject}) async {
     // GET operations are idempotent, so retries are enabled by default
     // This matches TypeScript where getMetadata() makes the API request directly
-    final executor = RetryExecutor(storage);
-    final response = await executor.retry<BucketMetadata>(
+    final api = ApiExecutor(storage);
+    final response = await api.execute<BucketMetadata>(
       (client) async {
         // Use provided userProject or fall back to instance-level userProject
         return await client.buckets
@@ -319,11 +320,20 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// including `autoCreate` support. It internally calls [getMetadata()] which
   /// is provided by the mixin.
   ///
-  /// Note: This method has a different signature than the mixin's `get()` method,
-  /// so it doesn't override it. Both methods are available, with this one taking
-  /// precedence when called with [GetBucketOptions].
-  // ignore: invalid_override
-  Future<Bucket> get({GetBucketOptions? options}) async {
+  /// To use extended options like `autoCreate`, use [getWithOptions()] instead.
+  @override
+  Future<Bucket> get({String? userProject}) async {
+    // Use provided userProject or fall back to instance-level userProject
+    await getMetadata(userProject: userProject ?? this.userProject);
+    // Return this instance (matches TypeScript behavior)
+    return this;
+  }
+
+  /// Get the bucket with extended options including auto-create functionality.
+  ///
+  /// This method provides the same functionality as [get()] but with additional
+  /// options like `autoCreate`.
+  Future<Bucket> getWithOptions({GetBucketOptions? options}) async {
     final getOptions = options ?? const GetBucketOptions();
 
     try {
@@ -342,7 +352,7 @@ class Bucket extends ServiceObject<BucketMetadata>
         } on ApiError catch (createErr) {
           // If create fails with 409 (conflict), someone else created it, retry get
           if (createErr.code == 409) {
-            return get(options: getOptions);
+            return getWithOptions(options: getOptions);
           }
           rethrow;
         }
@@ -354,13 +364,13 @@ class Bucket extends ServiceObject<BucketMetadata>
   @override
   Future<BucketMetadata> setMetadata(BucketMetadata metadata,
       {SetBucketMetadataOptions? options = const SetBucketMetadataOptions()}) {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryBucketMutation,
     );
 
-    return executor.retry<BucketMetadata>(
+    return api.execute<BucketMetadata>(
       (client) async {
         // Use provided userProject or fall back to instance-level userProject
         final updated = await client.buckets.patch(
@@ -447,15 +457,15 @@ class Bucket extends ServiceObject<BucketMetadata>
 
     // Determine retry behavior based on preconditions and idempotency strategy
     // This mirrors the TypeScript logic for disabling retries conditionally
-    // The RetryExecutor will handle retry logic based on shouldRetryObjectMutation
-    final executor = RetryExecutor(
+    // The ApiExecutor will handle retry logic based on shouldRetryObjectMutation
+    final api = ApiExecutor(
       storage,
       preconditionOptions: mergedOptions,
       instancePreconditions: destination.options.preconditionOpts,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return executor.retry<void>(
+    return api.execute<void>(
       (client) async {
         // Handle content type detection
         // If destination metadata doesn't have contentType, try to detect it from file name
@@ -520,7 +530,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   Future<Channel> createChannel(String id, CreateChannelConfig config,
       [CreateChannelOptions? options = const CreateChannelOptions()]) {
-    final executor = RetryExecutor(storage);
+    final api = ApiExecutor(storage);
 
     if (id.isEmpty) {
       // TODO: Use exception class
@@ -531,7 +541,7 @@ class Bucket extends ServiceObject<BucketMetadata>
     final userProject =
         options?.userProject ?? config.userProject ?? this.userProject;
 
-    return executor.retry<Channel>(
+    return api.execute<Channel>(
       (client) async {
         final metadata = ChannelMetadata()
           ..id = id
@@ -588,9 +598,9 @@ class Bucket extends ServiceObject<BucketMetadata>
     }
 
     final createOptions = options ?? const CreateNotificationOptions();
-    final executor = RetryExecutor.withoutRetries(storage);
+    final api = ApiExecutor.withoutRetries(storage);
 
-    return executor.retry<Notification>(
+    return api.execute<Notification>(
       (client) async {
         // Format the topic
         var formattedTopic = topic;
@@ -904,8 +914,8 @@ class Bucket extends ServiceObject<BucketMetadata>
       return (files, null);
     } else {
       // Single page request - no auto-pagination
-      final executor = RetryExecutor(storage);
-      final response = await executor.retry(
+      final api = ApiExecutor(storage);
+      final response = await api.execute(
         (client) async {
           return await client.objects.list(
             id,
@@ -956,11 +966,11 @@ class Bucket extends ServiceObject<BucketMetadata>
   Stream<File> getFilesStream(
       [GetFilesOptions? options = const GetFilesOptions()]) {
     final opts = options ?? const GetFilesOptions();
-    final executor = RetryExecutor(storage);
+    final api = ApiExecutor(storage);
 
     return Streaming<File, GetFilesOptions>(
       fetcher: (GetFilesOptions pageOptions) async {
-        final response = await executor.retry(
+        final response = await api.execute(
           (client) async {
             // Use provided userProject or fall back to instance-level userProject
             return await client.objects.list(
@@ -1018,8 +1028,8 @@ class Bucket extends ServiceObject<BucketMetadata>
   Future<List<Notification>> getNotifications(
       [GetNotificationsOptions? options =
           const GetNotificationsOptions()]) async {
-    final executor = RetryExecutor(storage);
-    return executor.retry<List<Notification>>(
+    final api = ApiExecutor(storage);
+    return api.execute<List<Notification>>(
       (client) async {
         final response = await client.notifications
             .list(id, userProject: options?.userProject ?? userProject);
@@ -1060,9 +1070,10 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   // /// Lock an existing retention policy on this bucket.
   Future<void> lock(num metageneration) {
-    final executor =
-        RetryExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
-    return executor.retry<void>(
+    final api =
+        ApiExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
+
+    return api.execute<void>(
       (client) async {
         // Use instance-level userProject if set
         await client.buckets.lockRetentionPolicy(
@@ -1150,10 +1161,10 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   /// Restore a soft-deleted bucket (if applicable).
   Future<BucketMetadata> restore(RestoreOptions options) {
-    final executor =
-        RetryExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
+    final api =
+        ApiExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
 
-    return executor.retry<BucketMetadata>(
+    return api.execute<BucketMetadata>(
       (client) async {
         // Use provided userProject or fall back to instance-level userProject
         return await client.buckets.restore(

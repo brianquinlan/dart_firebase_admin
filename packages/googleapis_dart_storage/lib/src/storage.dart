@@ -12,15 +12,17 @@ class StorageOptions extends ServiceOptions {
     super.authClient,
     super.useAuthWithCustomEndpoint,
     super.universeDomain,
+    super.projectId,
   });
 
   StorageOptions copyWith({
     String? apiEndpoint,
     Crc32Generator? crc32cGenerator,
     RetryOptions? retryOptions,
-    Future<http.Client>? authClient,
+    FutureOr<AuthClient>? authClient,
     bool? useAuthWithCustomEndpoint,
     String? universeDomain,
+    String? projectId,
   }) {
     return StorageOptions(
       apiEndpoint: apiEndpoint ?? this.apiEndpoint,
@@ -30,12 +32,14 @@ class StorageOptions extends ServiceOptions {
       useAuthWithCustomEndpoint:
           useAuthWithCustomEndpoint ?? super.useAuthWithCustomEndpoint,
       universeDomain: universeDomain ?? super.universeDomain,
+      projectId: projectId ?? super.projectId,
     );
   }
 }
 
 class Storage extends Service<StorageOptions> {
   final Crc32Generator crc32cGenerator;
+  RetryOptions get retryOptions => options.retryOptions ?? const RetryOptions();
 
   Storage(StorageOptions options)
       : crc32cGenerator =
@@ -74,7 +78,6 @@ class Storage extends Service<StorageOptions> {
       apiEndpoint: apiEndpoint,
       customEndpoint: customEndpoint,
       useAuthWithCustomEndpoint: options.useAuthWithCustomEndpoint,
-      authClient: options.authClient,
     );
   }
 
@@ -89,9 +92,6 @@ class Storage extends Service<StorageOptions> {
     }
     return url.replaceAll(RegExp(r'/+$'), ''); // Remove trailing slashes
   }
-
-  /// Get the retry options, with a default if not set.
-  RetryOptions get retryOptions => options.retryOptions ?? const RetryOptions();
 
   Bucket bucket(String name, [BucketOptions? options]) {
     if (name.isEmpty) {
@@ -115,18 +115,18 @@ class Storage extends Service<StorageOptions> {
   }
 
   Future<Bucket> createBucket(BucketMetadata bucket) async {
-    final executor = RetryExecutor.withoutRetries(this);
+    final api = ApiExecutor.withoutRetries(this);
 
     if (bucket.name == null) {
       throw ArgumentError('Bucket name is required');
     }
 
     try {
-      return await executor.retry(
-        (client) async {
+      return await api.executeWithProjectId(
+        (client, projectId) async {
           final inner = await client.buckets.insert(
             bucket,
-            options.projectId,
+            projectId,
           );
 
           final instance = this.bucket(bucket.name!);
@@ -135,19 +135,21 @@ class Storage extends Service<StorageOptions> {
         },
       );
     } catch (e) {
+      print(e);
       throw ApiError('Failed to create bucket', details: e);
     }
   }
 
   Future<HmacKey> createHmacKey(String serviceAccountEmail,
       [CreateHmacKeyOptions? options]) async {
-    final executor = RetryExecutor.withoutRetries(this);
+    final api = ApiExecutor.withoutRetries(this);
 
     try {
-      return await executor.retry<HmacKey>(
-        (client) async {
+      return await api.executeWithProjectId<HmacKey>(
+        projectIdOverride: options?.projectId,
+        (client, projectId) async {
           final response = await client.projects.hmacKeys.create(
-            options?.projectId ?? this.options.projectId,
+            projectId,
             serviceAccountEmail,
             userProject: options?.userProject,
           );
@@ -189,12 +191,13 @@ class Storage extends Service<StorageOptions> {
       return (buckets, null);
     } else {
       // Single page request - no auto-pagination
-      final executor = RetryExecutor(this);
+      final api = ApiExecutor(this);
       try {
-        final response = await executor.retry(
-          (client) async {
+        final response = await api.executeWithProjectId(
+          projectIdOverride: opts.projectId,
+          (client, projectId) async {
             return await client.buckets.list(
-              opts.projectId ?? this.options.projectId,
+              projectId,
               maxResults: opts.maxResults,
               pageToken: opts.pageToken,
               prefix: opts.prefix,
@@ -224,6 +227,48 @@ class Storage extends Service<StorageOptions> {
     }
   }
 
+  /// Stream buckets in this storage instance.
+  ///
+  /// Automatically handles pagination and yields buckets as they arrive.
+  /// Similar to Node's `getBucketsStream`.
+  Stream<Bucket> getBucketsStream(
+      [GetBucketsOptions? options = const GetBucketsOptions()]) {
+    final opts = options ?? const GetBucketsOptions();
+    final api = ApiExecutor(this);
+
+    return Streaming<Bucket, GetBucketsOptions>(
+      fetcher: (GetBucketsOptions pageOptions) async {
+        final response = await api.executeWithProjectId(
+          projectIdOverride: pageOptions.projectId,
+          (client, projectId) async {
+            return await client.buckets.list(
+              projectId,
+              maxResults: pageOptions.maxResults,
+              pageToken: pageOptions.pageToken,
+              prefix: pageOptions.prefix,
+              projection: pageOptions.projection?.name,
+              softDeleted: pageOptions.softDeleted,
+              userProject: pageOptions.userProject,
+            );
+          },
+        );
+
+        final itemsArray = response.items ?? [];
+        final buckets = itemsArray.map((bucketMetadata) {
+          final bucketInstance = bucket(bucketMetadata.id!);
+          bucketInstance.setInstanceMetadata(bucketMetadata);
+          return bucketInstance;
+        });
+
+        return (buckets, response.nextPageToken);
+      },
+      initialOptions: opts,
+      maxApiCalls: opts.maxApiCalls,
+      updatePageToken: (options, pageToken) =>
+          options.copyWith(pageToken: pageToken),
+    );
+  }
+
   Future<(List<HmacKey> keys, GetHmacKeysOptions? nextQuery)> getHmacKeys(
       [GetHmacKeysOptions? options = const GetHmacKeysOptions()]) async {
     final opts = options ?? const GetHmacKeysOptions();
@@ -238,12 +283,13 @@ class Storage extends Service<StorageOptions> {
       return (keys, null);
     } else {
       // Single page request - no auto-pagination
-      final executor = RetryExecutor(this);
+      final api = ApiExecutor(this);
       try {
-        final response = await executor.retry(
-          (client) async {
+        final response = await api.executeWithProjectId(
+          projectIdOverride: opts.projectId,
+          (client, projectId) async {
             return await client.projects.hmacKeys.list(
-              opts.projectId ?? this.options.projectId,
+              projectId,
               serviceAccountEmail: opts.serviceAccountEmail,
               showDeletedKeys: opts.showDeletedKeys,
               maxResults: opts.maxResults,
@@ -275,74 +321,6 @@ class Storage extends Service<StorageOptions> {
     }
   }
 
-  Future<storage_v1.ServiceAccount> getServiceAccount(
-      [GetServiceAccountOptions? options]) async {
-    final executor = RetryExecutor(this);
-
-    try {
-      return await executor.retry(
-        (client) async {
-          return client.projects.serviceAccount.get(
-            this.options.projectId,
-            userProject: options?.userProject,
-          );
-        },
-      );
-    } catch (e) {
-      throw ApiError('Failed to get service account', details: e);
-    }
-  }
-
-  HmacKey hmacKey(String accessId, [HmacKeyOptions? options]) {
-    if (accessId.isEmpty) {
-      // TODO: Use exception class
-      throw Exception('Access ID is required');
-    }
-
-    return HmacKey._(this, accessId, options: options);
-  }
-
-  /// Stream buckets in this storage instance.
-  ///
-  /// Automatically handles pagination and yields buckets as they arrive.
-  /// Similar to Node's `getBucketsStream`.
-  Stream<Bucket> getBucketsStream(
-      [GetBucketsOptions? options = const GetBucketsOptions()]) {
-    final opts = options ?? const GetBucketsOptions();
-    final executor = RetryExecutor(this);
-
-    return Streaming<Bucket, GetBucketsOptions>(
-      fetcher: (GetBucketsOptions pageOptions) async {
-        final response = await executor.retry(
-          (client) async {
-            return await client.buckets.list(
-              pageOptions.projectId ?? this.options.projectId,
-              maxResults: pageOptions.maxResults,
-              pageToken: pageOptions.pageToken,
-              prefix: pageOptions.prefix,
-              projection: pageOptions.projection?.name,
-              softDeleted: pageOptions.softDeleted,
-              userProject: pageOptions.userProject,
-            );
-          },
-        );
-
-        final itemsArray = response.items ?? [];
-        final buckets = itemsArray.map((bucketMetadata) {
-          final bucketInstance = bucket(bucketMetadata.id!);
-          bucketInstance.setInstanceMetadata(bucketMetadata);
-          return bucketInstance;
-        });
-
-        return (buckets, response.nextPageToken);
-      },
-      initialOptions: opts,
-      maxApiCalls: opts.maxApiCalls,
-      updatePageToken: (options, pageToken) =>
-          options.copyWith(pageToken: pageToken),
-    );
-  }
-
   /// Stream HMAC keys in this storage instance.
   ///
   /// Automatically handles pagination and yields HMAC keys as they arrive.
@@ -350,14 +328,15 @@ class Storage extends Service<StorageOptions> {
   Stream<HmacKey> getHmacKeysStream(
       [GetHmacKeysOptions? options = const GetHmacKeysOptions()]) {
     final opts = options ?? const GetHmacKeysOptions();
-    final executor = RetryExecutor(this);
+    final api = ApiExecutor(this);
 
     return Streaming<HmacKey, GetHmacKeysOptions>(
       fetcher: (GetHmacKeysOptions pageOptions) async {
-        final response = await executor.retry(
-          (client) async {
+        final response = await api.executeWithProjectId(
+          projectIdOverride: pageOptions.projectId,
+          (client, projectId) async {
             return await client.projects.hmacKeys.list(
-              pageOptions.projectId ?? this.options.projectId,
+              projectId,
               serviceAccountEmail: pageOptions.serviceAccountEmail,
               showDeletedKeys: pageOptions.showDeletedKeys,
               maxResults: pageOptions.maxResults,
@@ -385,10 +364,113 @@ class Storage extends Service<StorageOptions> {
           options.copyWith(pageToken: pageToken),
     );
   }
+
+  Future<storage_v1.ServiceAccount> getServiceAccount(
+      [GetServiceAccountOptions? options]) async {
+    final api = ApiExecutor(this);
+
+    try {
+      return await api.executeWithProjectId(
+        projectIdOverride: options?.projectId,
+        (client, projectId) async {
+          return client.projects.serviceAccount.get(
+            projectId,
+            userProject: options?.userProject,
+          );
+        },
+      );
+    } catch (e) {
+      throw ApiError('Failed to get service account', details: e);
+    }
+  }
+
+  HmacKey hmacKey(String accessId, [HmacKeyOptions? options]) {
+    if (accessId.isEmpty) {
+      // TODO: Use exception class
+      throw Exception('Access ID is required');
+    }
+
+    return HmacKey._(this, accessId, options: options);
+  }
 }
 
 class GetServiceAccountOptions {
   final String? userProject;
+  final String? projectId;
 
-  const GetServiceAccountOptions({this.userProject});
+  const GetServiceAccountOptions({this.userProject, this.projectId});
+}
+
+class RetryOptions {
+  final bool autoRetry;
+  final int maxRetries;
+  final Duration totalTimeout;
+  final Duration maxRetryDelay;
+  final double retryDelayMultiplier;
+  final RetryableErrorFn? retryableErrorFn;
+  final IdempotencyStrategy idempotencyStrategy;
+
+  const RetryOptions({
+    this.autoRetry = true,
+    this.maxRetries = 3,
+    this.totalTimeout = const Duration(seconds: 600),
+    this.maxRetryDelay = const Duration(seconds: 64),
+    this.retryDelayMultiplier = 2.0,
+    this.retryableErrorFn,
+    this.idempotencyStrategy = IdempotencyStrategy.retryConditional,
+  });
+
+  RetryOptions copyWith({
+    bool? autoRetry,
+    int? maxRetries,
+    Duration? totalTimeout,
+    Duration? maxRetryDelay,
+    double? retryDelayMultiplier,
+    RetryableErrorFn? retryableErrorFn,
+    IdempotencyStrategy? idempotencyStrategy,
+  }) {
+    return RetryOptions(
+      autoRetry: autoRetry ?? this.autoRetry,
+      maxRetries: maxRetries ?? this.maxRetries,
+      totalTimeout: totalTimeout ?? this.totalTimeout,
+      maxRetryDelay: maxRetryDelay ?? this.maxRetryDelay,
+      retryDelayMultiplier: retryDelayMultiplier ?? this.retryDelayMultiplier,
+      retryableErrorFn: retryableErrorFn ?? this.retryableErrorFn,
+      idempotencyStrategy: idempotencyStrategy ?? this.idempotencyStrategy,
+    );
+  }
+}
+
+class PreconditionOptions {
+  final int? ifGenerationMatch;
+  final int? ifGenerationNotMatch;
+  final int? ifMetagenerationMatch;
+  final int? ifMetagenerationNotMatch;
+
+  const PreconditionOptions({
+    this.ifGenerationMatch,
+    this.ifGenerationNotMatch,
+    this.ifMetagenerationMatch,
+    this.ifMetagenerationNotMatch,
+  });
+}
+
+/// Options for delete operations, mirroring Node's DeleteOptions.
+///
+/// Extends [PreconditionOptions] to include delete-specific options.
+class DeleteOptions extends PreconditionOptions {
+  /// If true, ignore 404 errors (treat as success if object doesn't exist).
+  final bool ignoreNotFound;
+
+  /// The ID of the project which will be billed for the request.
+  final String? userProject;
+
+  const DeleteOptions({
+    this.ignoreNotFound = false,
+    this.userProject,
+    super.ifGenerationMatch,
+    super.ifGenerationNotMatch,
+    super.ifMetagenerationMatch,
+    super.ifMetagenerationNotMatch,
+  });
 }

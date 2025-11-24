@@ -8,8 +8,8 @@ class Iam {
   Iam._(this.bucket);
 
   Future<Policy> getPolicy([GetPolicyOptions? options]) async {
-    final executor = RetryExecutor(bucket.storage);
-    return await executor.retry<Policy>(
+    final api = ApiExecutor(bucket.storage);
+    return await api.execute<Policy>(
       (client) async {
         return await client.buckets.getIamPolicy(
           bucket.id,
@@ -21,11 +21,11 @@ class Iam {
   }
 
   Future<Policy> setPolicy(Policy policy, [SetPolicyOptions? options]) async {
-    final executor = policy.etag == null
-        ? RetryExecutor.withoutRetries(bucket.storage)
-        : RetryExecutor(bucket.storage);
+    final api = policy.etag == null
+        ? ApiExecutor.withoutRetries(bucket.storage)
+        : ApiExecutor(bucket.storage);
 
-    return await executor.retry<Policy>(
+    return await api.execute<Policy>(
       (client) async {
         return await client.buckets.setIamPolicy(
           policy,
@@ -38,8 +38,8 @@ class Iam {
 
   Future<Map<String, bool>> testPermissions(List<String> permissions,
       [TestIamPermissionsOptions? options]) async {
-    final executor = RetryExecutor(bucket.storage);
-    return await executor.retry(
+    final api = ApiExecutor(bucket.storage);
+    return await api.execute(
       (client) async {
         final response = await client.buckets.testIamPermissions(
           bucket.id,

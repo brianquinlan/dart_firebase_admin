@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis/storage/v1.dart' as storage_v1;
+import 'package:googleapis_auth/auth_io.dart' as auth_io;
 
 typedef RequestInterceptor = http.BaseRequest Function(http.BaseRequest);
 
@@ -10,7 +14,7 @@ typedef RequestInterceptor = http.BaseRequest Function(http.BaseRequest);
 abstract class ServiceOptions {
   /// The authenticated HTTP client. If not provided, will be required
   /// unless using a custom endpoint without auth.
-  final Future<http.Client>? authClient;
+  final FutureOr<AuthClient>? authClient;
 
   /// Whether to use authentication with custom endpoints.
   /// Defaults to false (no auth) for custom endpoints/emulators.
@@ -20,97 +24,26 @@ abstract class ServiceOptions {
   /// Used to construct the default API endpoint.
   final String? universeDomain;
 
-  final String projectId;
+  final String? projectId;
 
   const ServiceOptions({
     this.authClient,
     this.useAuthWithCustomEndpoint,
     this.universeDomain,
-    this.projectId = '{{projectId}}',
+    this.projectId,
   });
 }
 
 class ServiceConfig {
   final String apiEndpoint;
-  final Future<http.Client>? authClient;
   final bool? customEndpoint;
   final bool? useAuthWithCustomEndpoint;
 
   const ServiceConfig({
     required this.apiEndpoint,
-    this.authClient,
     this.customEndpoint,
     this.useAuthWithCustomEndpoint,
   });
-}
-
-/// Creates a StorageApi instance with proper configuration.
-///
-/// StorageApi from googleapis takes:
-/// - `Client client`: The HTTP client (can be AuthClient or plain http.Client)
-/// - `rootUrl`: The base URL (defaults to 'https://storage.googleapis.com/')
-/// - `servicePath`: The service path (defaults to 'storage/v1/')
-///
-/// For custom endpoints/emulators, we pass the custom rootUrl.
-/// The node SDK constructs URLs manually, but we use googleapis which handles
-/// URL construction internally using rootUrl + servicePath.
-///
-/// Node SDK authentication behavior:
-/// - If `customEndpoint` is true AND `useAuthWithCustomEndpoint` is NOT true,
-///   it bypasses authentication (uses plain HTTP client like gaxios)
-/// - Otherwise, it uses the authenticated client
-///
-/// Since StorageApi handles the servicePath internally, we just need to pass
-/// the rootUrl (apiEndpoint with trailing slash).
-Future<storage_v1.StorageApi> _createStorageApi(
-  ServiceConfig config,
-  ServiceOptions options,
-) async {
-  // Calculate rootUrl from apiEndpoint
-  // StorageApi expects rootUrl to be the base URL (e.g., 'https://storage.googleapis.com/')
-  // The servicePath ('storage/v1/') is handled internally by StorageApi
-  var rootUrl = config.apiEndpoint;
-
-  // Ensure rootUrl ends with a slash (required by StorageApi)
-  if (!rootUrl.endsWith('/')) {
-    rootUrl = '$rootUrl/';
-  }
-
-  final servicePath = 'storage/v1/';
-
-  // Handle authentication based on custom endpoint settings
-  // This matches the node SDK's behavior in util.ts:makeAuthenticatedRequestFactory
-  // where it checks: if (reqConfig.customEndpoint && !reqConfig.useAuthWithCustomEndpoint)
-  // then it bypasses authentication
-  if (config.customEndpoint == true &&
-      config.useAuthWithCustomEndpoint != true) {
-    // For custom endpoints without auth (e.g., emulators), use a plain HTTP client
-    // This matches node SDK's behavior of using gaxios (plain HTTP client) instead
-    // of the authenticated client
-    final plainClient = http.Client();
-    return storage_v1.StorageApi(
-      plainClient,
-      rootUrl: rootUrl,
-      servicePath: servicePath,
-    );
-  }
-
-  // For normal endpoints or custom endpoints with auth, use the authenticated client
-  final authClient = config.authClient ?? options.authClient;
-
-  if (authClient == null) {
-    throw ArgumentError(
-      'AuthClient is required. Provide authClient in StorageOptions, '
-      'or set useAuthWithCustomEndpoint: false for custom endpoints without auth.',
-    );
-  }
-
-  // Create StorageApi with the auth client and custom rootUrl
-  return storage_v1.StorageApi(
-    await authClient,
-    rootUrl: rootUrl,
-    servicePath: servicePath,
-  );
 }
 
 /// Base service class, roughly analogous to the Node `Service` type.
@@ -120,10 +53,82 @@ abstract class Service<T extends ServiceOptions> {
 
   /// The Storage API client from googleapis package.
   /// This handles all the low-level API calls to Google Cloud Storage.
-  storage_v1.StorageApi? _client;
+  storage_v1.StorageApi? _storageClient;
+  AuthClient? _authClient;
 
-  Future<storage_v1.StorageApi> get client async {
-    return _client ??= await _createStorageApi(config, options);
+  Future<storage_v1.StorageApi> get storageClient async {
+    return _storageClient ??= await _createStorageClient();
+  }
+
+  /// Get or create the authenticated client.
+  ///
+  /// This is always created, even for custom endpoints without auth,
+  /// because it's needed for projectId resolution (similar to Node.js SDK).
+  /// The authClient is created lazily on first access.
+  Future<AuthClient> get authClient async {
+    if (_authClient != null) {
+      return _authClient!;
+    }
+
+    if (options.authClient != null) {
+      return _authClient = await options.authClient!;
+    }
+
+    // Auto-create from Application Default Credentials
+    // Using the same scopes as Node.js SDK (storage.ts lines 778-782)
+    return _authClient = await auth_io.clientViaApplicationDefaultCredentials(
+      scopes: [
+        'https://www.googleapis.com/auth/iam',
+        'https://www.googleapis.com/auth/cloud-platform',
+        'https://www.googleapis.com/auth/devstorage.full_control',
+      ],
+    );
+  }
+
+  Future<storage_v1.StorageApi> _createStorageClient() async {
+    // Calculate rootUrl from apiEndpoint
+    // StorageApi expects rootUrl to be the base URL (e.g., 'https://storage.googleapis.com/')
+    // The servicePath ('storage/v1/') is handled internally by StorageApi
+    var rootUrl = config.apiEndpoint;
+
+    // Ensure rootUrl ends with a slash (required by StorageApi)
+    if (!rootUrl.endsWith('/')) {
+      rootUrl = '$rootUrl/';
+    }
+
+    final servicePath = 'storage/v1/';
+
+    // Handle authentication based on custom endpoint settings
+    // This matches the node SDK's behavior in util.ts:makeAuthenticatedRequestFactory
+    // where it checks: if (reqConfig.customEndpoint && !reqConfig.useAuthWithCustomEndpoint)
+    // then it bypasses authentication for API requests
+    //
+    // Note: We still create the authClient (above) even for custom endpoints
+    // because it's needed for projectId resolution, but we use a plain client
+    // for the actual API requests when auth is disabled.
+    if (config.customEndpoint == true &&
+        config.useAuthWithCustomEndpoint != true) {
+      // For custom endpoints without auth (e.g., emulators), use a plain HTTP client
+      // This matches node SDK's behavior of using gaxios (plain HTTP client) instead
+      // of the authenticated client for requests
+      //
+      // However, we still ensure authClient is available (via lazy getter above)
+      // for projectId resolution, even though we don't use it for requests here
+      final plainClient = http.Client();
+      return storage_v1.StorageApi(
+        plainClient,
+        rootUrl: rootUrl,
+        servicePath: servicePath,
+      );
+    }
+
+    // For normal endpoints or custom endpoints with auth, use the authenticated client
+    // Ensure authClient is created (this will auto-create from ADC if needed)
+    return storage_v1.StorageApi(
+      await authClient,
+      rootUrl: rootUrl,
+      servicePath: servicePath,
+    );
   }
 
   Service(this.config, this.options);
@@ -201,7 +206,7 @@ abstract class Service<T extends ServiceOptions> {
   //     );
   //   }
 
-  //   return executor.retry<http.Response>(
+  //   return api.execute<http.Response>(
   //     op,
   //     options,
   //     classify: (error) =>
@@ -242,7 +247,7 @@ abstract class Service<T extends ServiceOptions> {
   //     );
   //   }
 
-  //   return executor.retry<http.StreamedResponse>(
+  //   return api.execute<http.StreamedResponse>(
   //     op,
   //     options,
   //     classify: (error) =>

@@ -57,8 +57,8 @@ class Notification extends ServiceObject<NotificationMetadata>
 
   @override
   Future<void> delete({DeleteOptions? options}) {
-    final executor = RetryExecutor(bucket.storage);
-    return executor.retry<void>((client) async {
+    final api = ApiExecutor(bucket.storage);
+    return api.execute<void>((client) async {
       try {
         await client.notifications.delete(
           bucket.id,
@@ -75,8 +75,8 @@ class Notification extends ServiceObject<NotificationMetadata>
 
   @override
   Future<NotificationMetadata> getMetadata({String? userProject}) async {
-    final executor = RetryExecutor(bucket.storage);
-    return executor.retry<NotificationMetadata>((client) async {
+    final api = ApiExecutor(bucket.storage);
+    return api.execute<NotificationMetadata>((client) async {
       final metadata = await client.notifications.get(
         bucket.id,
         id,

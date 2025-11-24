@@ -89,10 +89,10 @@ class Acl {
     int? generation,
     String? userProject,
   }) async {
-    final executor = RetryExecutor.withoutRetries(_storage);
+    final api = ApiExecutor.withoutRetries(_storage);
 
     try {
-      return await executor.retry<AclEntry>(
+      return await api.execute<AclEntry>(
         (client) async {
           switch (scope) {
             case AclScope.bucket:
@@ -148,9 +148,9 @@ class Acl {
     int? generation,
     String? userProject,
   }) async {
-    final executor = RetryExecutor(_storage);
+    final api = ApiExecutor(_storage);
 
-    await executor.retry<void>(
+    await api.execute<void>(
       (client) async {
         switch (scope) {
           case AclScope.bucket:
@@ -192,10 +192,10 @@ class Acl {
     int? generation,
     String? userProject,
   }) async {
-    final executor = RetryExecutor(_storage);
+    final api = ApiExecutor(_storage);
 
     try {
-      return await executor.retry<AclEntry>(
+      return await api.execute<AclEntry>(
         (client) async {
           switch (scope) {
             case AclScope.bucket:
@@ -238,10 +238,10 @@ class Acl {
 
   /// List all ACL entries for this scope.
   Future<List<AclEntry>> getAll({int? generation, String? userProject}) async {
-    final executor = RetryExecutor(_storage);
+    final api = ApiExecutor(_storage);
 
     try {
-      return await executor.retry<List<AclEntry>>(
+      return await api.execute<List<AclEntry>>(
         (client) async {
           switch (scope) {
             case AclScope.bucket:
@@ -292,10 +292,10 @@ class Acl {
     int? generation,
     String? userProject,
   }) async {
-    final executor = RetryExecutor(_storage);
+    final api = ApiExecutor(_storage);
 
     try {
-      return await executor.retry<AclEntry>(
+      return await api.execute<AclEntry>(
         (client) async {
           switch (scope) {
             case AclScope.bucket:

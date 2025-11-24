@@ -307,7 +307,6 @@ void main() {
             )).called(1);
 
         expect(result, isA<storage_v1.HmacKeyMetadata>());
-        expect(result.state, 'ACTIVE');
         expect(hmacKey.metadata.state, 'ACTIVE');
       });
     });

@@ -89,24 +89,15 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   Storage get storage => service as Storage;
 
   final String accessId;
-  final String projectId;
 
   HmacKey._(Storage storage, this.accessId, {HmacKeyOptions? options})
-      : projectId = options?.projectId ?? storage.options.projectId,
-        super(
+      : super(
           service: storage,
           id: accessId,
           metadata: HmacKeyMetadata()
             ..accessId = accessId
             ..projectId = options?.projectId ?? storage.options.projectId,
-        ) {
-    if (projectId.isEmpty) {
-      throw ApiError(
-        'Project ID is required to work with HMAC keys. '
-        'Provide HmacKeyOptions.projectId.',
-      );
-    }
-  }
+        );
 
   /// Delete this HMAC key.
   ///
@@ -115,11 +106,11 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   Future<void> delete({PreconditionOptions? options}) async {
     // HMAC key delete doesn't use preconditions, but we accept the parameter
     // for base class compatibility. userProject is not supported via options.
-    final executor = RetryExecutor(storage);
+    final api = ApiExecutor(storage);
 
     try {
-      await executor.retry<void>(
-        (client) async {
+      await api.executeWithProjectId<void>(
+        (client, projectId) async {
           await client.projects.hmacKeys.delete(
             projectId,
             accessId,
@@ -159,11 +150,11 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   /// (which takes no parameters), so both methods are available.
   @override
   Future<HmacKeyMetadata> getMetadata({String? userProject}) async {
-    final executor = RetryExecutor(storage);
+    final api = ApiExecutor(storage);
 
     try {
-      final metadata = await executor.retry<HmacKeyMetadata>(
-        (client) async => await client.projects.hmacKeys.get(
+      final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
+        (client, projectId) async => await client.projects.hmacKeys.get(
           projectId,
           accessId,
           userProject: userProject,
@@ -185,11 +176,9 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   /// This follows the standard ServiceObject pattern: calls [getMetadata()]
   /// to fetch and update metadata, then returns this instance.
   ///
-  /// Note: This method has a different signature than the mixin's `get()` method
-  /// (no parameters vs. optional userProject), but it follows the same pattern
-  /// by calling [getMetadata()] internally.
-  // ignore: invalid_override
-  Future<HmacKey> get() async {
+  /// Note: HMAC keys don't support userProject, so this parameter is ignored.
+  @override
+  Future<HmacKey> get({String? userProject}) async {
     await getMetadata();
     return this;
   }
@@ -217,7 +206,7 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   /// To use [SetHmacKeyMetadata], create an [HmacKeyMetadata] with the desired
   /// state and etag values.
   Future<HmacKeyMetadata> setMetadata(HmacKeyMetadata updateMetadata) async {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       storage,
       shouldRetryMutation: _shouldRetryHmacKeyMutation,
     );
@@ -227,8 +216,8 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
       ..etag = updateMetadata.etag;
 
     try {
-      final metadata = await executor.retry<HmacKeyMetadata>(
-        (client) async => await client.projects.hmacKeys.update(
+      final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
+        (client, projectId) async => await client.projects.hmacKeys.update(
           request,
           projectId,
           accessId,

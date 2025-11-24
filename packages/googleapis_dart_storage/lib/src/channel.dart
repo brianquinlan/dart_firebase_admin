@@ -83,9 +83,9 @@ class Channel extends ServiceObject<ChannelMetadata> {
   /// await channel.stop();
   /// ```
   Future<void> stop() async {
-    final executor = RetryExecutor(storage);
+    final api = ApiExecutor(storage);
 
-    await executor.retry<void>(
+    await api.execute<void>(
       (client) async {
         try {
           await client.channels.stop(metadata);

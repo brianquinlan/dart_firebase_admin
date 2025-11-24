@@ -1,5 +1,4 @@
-import 'api_error.dart';
-import 'retry.dart';
+import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
 import 'service.dart';
 
 mixin CreatableMixin<M, T> on ServiceObject<M> {

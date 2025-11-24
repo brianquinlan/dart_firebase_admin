@@ -2,87 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:googleapis/storage/v1.dart';
-import 'package:googleapis_dart_storage/src/internal/api_error.dart';
-
-import '../../googleapis_dart_storage.dart' show Storage;
+import 'package:googleapis_auth/auth_io.dart';
+import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
 
 /// Matches the Node SDK IdempotencyStrategy enum semantics.
 enum IdempotencyStrategy { retryAlways, retryConditional, retryNever }
 
 typedef RetryableErrorFn = bool Function(dynamic error);
 
-class RetryOptions {
-  final bool autoRetry;
-  final int maxRetries;
-  final Duration totalTimeout;
-  final Duration maxRetryDelay;
-  final double retryDelayMultiplier;
-  final RetryableErrorFn? retryableErrorFn;
-  final IdempotencyStrategy idempotencyStrategy;
-
-  const RetryOptions({
-    this.autoRetry = true,
-    this.maxRetries = 3,
-    this.totalTimeout = const Duration(seconds: 600),
-    this.maxRetryDelay = const Duration(seconds: 64),
-    this.retryDelayMultiplier = 2.0,
-    this.retryableErrorFn,
-    this.idempotencyStrategy = IdempotencyStrategy.retryConditional,
-  });
-
-  RetryOptions copyWith({
-    bool? autoRetry,
-    int? maxRetries,
-    Duration? totalTimeout,
-    Duration? maxRetryDelay,
-    double? retryDelayMultiplier,
-    RetryableErrorFn? retryableErrorFn,
-    IdempotencyStrategy? idempotencyStrategy,
-  }) {
-    return RetryOptions(
-      autoRetry: autoRetry ?? this.autoRetry,
-      maxRetries: maxRetries ?? this.maxRetries,
-      totalTimeout: totalTimeout ?? this.totalTimeout,
-      maxRetryDelay: maxRetryDelay ?? this.maxRetryDelay,
-      retryDelayMultiplier: retryDelayMultiplier ?? this.retryDelayMultiplier,
-      retryableErrorFn: retryableErrorFn ?? this.retryableErrorFn,
-      idempotencyStrategy: idempotencyStrategy ?? this.idempotencyStrategy,
-    );
+extension on AuthClient {
+  Future<String?> getProjectId() async {
+    throw UnimplementedError('getProjectId is not implemented');
   }
-}
-
-class PreconditionOptions {
-  final int? ifGenerationMatch;
-  final int? ifGenerationNotMatch;
-  final int? ifMetagenerationMatch;
-  final int? ifMetagenerationNotMatch;
-
-  const PreconditionOptions({
-    this.ifGenerationMatch,
-    this.ifGenerationNotMatch,
-    this.ifMetagenerationMatch,
-    this.ifMetagenerationNotMatch,
-  });
-}
-
-/// Options for delete operations, mirroring Node's DeleteOptions.
-///
-/// Extends [PreconditionOptions] to include delete-specific options.
-class DeleteOptions extends PreconditionOptions {
-  /// If true, ignore 404 errors (treat as success if object doesn't exist).
-  final bool ignoreNotFound;
-
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
-
-  const DeleteOptions({
-    this.ignoreNotFound = false,
-    this.userProject,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-  });
 }
 
 /// Decide if an error should be retried, roughly mirroring Node's
@@ -199,7 +130,7 @@ typedef ShouldRetryMutationFn = bool Function(
 );
 
 /// Generic retry executor implementing exponential backoff.
-class RetryExecutor {
+class ApiExecutor {
   /// Creates a [RetryExecutor] that automatically determines retry behavior
   /// based on preconditions and idempotency strategy.
   ///
@@ -213,15 +144,16 @@ class RetryExecutor {
   ///
   /// If [shouldRetryMutation] is not provided, retries will always be allowed
   /// (unless disabled in [RetryOptions]).
-  RetryExecutor(
+  ApiExecutor(
     this.storage, {
     RetryOptions? retryOptions,
     PreconditionOptions? preconditionOptions,
-    PreconditionOptions? instancePreconditions,
+    this.instancePreconditions,
     ShouldRetryMutationFn? shouldRetryMutation,
+    bool Function(dynamic error)? classify,
   })  : preconditionOptions =
             preconditionOptions ?? const PreconditionOptions(),
-        instancePreconditions = instancePreconditions {
+        _classify = classify {
     // If retryOptions is explicitly provided, use it directly
     if (retryOptions != null) {
       _effectiveRetry = retryOptions;
@@ -247,68 +179,100 @@ class RetryExecutor {
   /// Creates a [RetryExecutor] with retries explicitly disabled.
   ///
   /// Useful for non-idempotent operations that should not be retried.
-  factory RetryExecutor.withoutRetries(Storage storage) {
+  factory ApiExecutor.withoutRetries(Storage storage) {
     final noRetryOptions = storage.retryOptions.copyWith(
       autoRetry: false,
       maxRetries: 0,
     );
-    return RetryExecutor(storage, retryOptions: noRetryOptions);
+    return ApiExecutor(storage, retryOptions: noRetryOptions);
   }
 
   final Storage storage;
   final PreconditionOptions preconditionOptions;
   final PreconditionOptions? instancePreconditions;
   late final RetryOptions _effectiveRetry;
+  final bool Function(dynamic error)? _classify;
 
   /// Execute an operation with retry logic.
   ///
-  /// Uses the effective retry options computed during construction, unless
-  /// [retryOptions] is explicitly provided to override them.
-  ///
-  /// [classify] determines if an error should be retried. Defaults to
-  /// [defaultShouldRetryError] if not provided.
-  Future<T> retry<T>(
-    Future<T> Function(StorageApi client) operation, {
-    RetryOptions? retryOptions,
-    bool Function(dynamic error)? classify,
-  }) async {
-    final options = retryOptions ?? _effectiveRetry;
-    final client = await storage.client;
+  /// For operations that don't require a projectId (e.g., bucket-scoped operations).
+  /// Use [executeWithProjectId] for operations that need a projectId.
+  Future<T> execute<T>(
+    Future<T> Function(StorageApi client) operation,
+  ) async {
+    return _executeWithRetry(() async {
+      final storageClient = await storage.storageClient;
+      return operation(storageClient);
+    });
+  }
 
-    if (!options.autoRetry || options.maxRetries <= 0) {
-      try {
-        return await operation(client);
-      } catch (e) {
-        rethrow;
+  /// Execute an operation with retry logic and projectId resolution.
+  ///
+  /// Resolves projectId using: [projectIdOverride] ?? storage.options.projectId ?? authClient.getProjectId()
+  /// This matches Node.js behavior: `const projectId = query.projectId || this.projectId;`
+  ///
+  /// Throws [ArgumentError] if projectId cannot be resolved.
+  Future<T> executeWithProjectId<T>(
+    Future<T> Function(StorageApi client, String projectId) operation, {
+    String? projectIdOverride,
+  }) async {
+    return _executeWithRetry(() async {
+      final storageClient = await storage.storageClient;
+      final authClient = await storage.authClient;
+
+      // Resolve projectId: use override if provided, otherwise use storage.options.projectId,
+      // or try to get from authClient. This matches Node.js behavior:
+      // `const projectId = query.projectId || this.projectId;`
+      final resolvedProjectId = projectIdOverride ??
+          storage.options.projectId ??
+          await authClient.getProjectId();
+
+      if (resolvedProjectId == null) {
+        throw ArgumentError(
+          'A project ID is required to perform this operation. '
+          'Please provide a project ID in the operation options, StorageOptions, '
+          'or ensure Application Default Credentials are configured with a project ID.',
+        );
       }
+
+      return operation(storageClient, resolvedProjectId);
+    });
+  }
+
+  Future<T> _executeWithRetry<T>(Future<T> Function() operation) async {
+    // If retries are disabled, execute the operation once and return the result.
+    if (!_effectiveRetry.autoRetry || _effectiveRetry.maxRetries <= 0) {
+      return await operation();
     }
 
-    final errorClassifier = classify ?? defaultShouldRetryError;
+    final errorClassifier = _classify ?? defaultShouldRetryError;
     final start = DateTime.now();
     var attempt = 0;
     var delay = const Duration(seconds: 1);
 
     while (true) {
       try {
-        return await operation(client);
+        return await operation();
       } catch (e) {
         attempt++;
         final elapsed = DateTime.now().difference(start);
-        if (attempt > options.maxRetries || elapsed >= options.totalTimeout) {
+        if (attempt > _effectiveRetry.maxRetries ||
+            elapsed >= _effectiveRetry.totalTimeout) {
           rethrow;
         }
 
-        final shouldRetry =
-            errorClassifier(e) || (options.retryableErrorFn?.call(e) ?? false);
+        final shouldRetry = errorClassifier(e) ||
+            (_effectiveRetry.retryableErrorFn?.call(e) ?? false);
         if (!shouldRetry) rethrow;
 
-        if (delay > options.maxRetryDelay) {
-          delay = options.maxRetryDelay;
+        if (delay > _effectiveRetry.maxRetryDelay) {
+          delay = _effectiveRetry.maxRetryDelay;
         }
         await Future<void>.delayed(delay);
         delay = Duration(
           milliseconds:
-              (delay.inMilliseconds * options.retryDelayMultiplier).toInt(),
+              (delay.inMilliseconds * _effectiveRetry.retryDelayMultiplier)
+                  .toInt(),
         );
       }
     }

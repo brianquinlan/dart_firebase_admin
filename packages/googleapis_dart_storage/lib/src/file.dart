@@ -352,14 +352,14 @@ class File extends ServiceObject<FileMetadata>
 
   @override
   Future<void> delete({PreconditionOptions? options}) async {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
     try {
-      await executor.retry<void>((client) async {
+      await api.execute<void>((client) async {
         await client.objects.delete(
           bucket.id,
           id,
@@ -384,8 +384,8 @@ class File extends ServiceObject<FileMetadata>
   Future<FileMetadata> getMetadata({String? userProject}) async {
     // GET operations are idempotent, so retries are enabled by default
     // This matches TypeScript where getMetadata() makes the API request directly
-    final executor = RetryExecutor(bucket.storage);
-    final response = await executor.retry<FileMetadata>(
+    final api = ApiExecutor(bucket.storage);
+    final response = await api.execute<FileMetadata>(
       (client) async {
         // Use provided userProject or fall back to instance-level userProject
         final result = await client.objects.get(
@@ -407,13 +407,13 @@ class File extends ServiceObject<FileMetadata>
     FileMetadata metadata, {
     SetFileMetadataOptions? options = const SetFileMetadataOptions(),
   }) {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return executor.retry<FileMetadata>(
+    return api.execute<FileMetadata>(
       (client) async {
         // Use provided userProject or fall back to instance-level userProject
         final updated = await client.objects.patch(
@@ -465,13 +465,13 @@ class File extends ServiceObject<FileMetadata>
       }
     }
 
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: copyOptions.preconditionOpts,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await executor.retry<File>(
+    return await api.execute<File>(
       (client) async {
         // Build destination metadata from options
         final destinationMetadata = storage_v1.Object()
@@ -649,13 +649,13 @@ class File extends ServiceObject<FileMetadata>
     // Note: predefinedAcl is set via patch method parameter, not in SetFileMetadataOptions
     // We need to use a different approach - setMetadata doesn't support predefinedAcl directly
     // So we'll need to call patch with predefinedAcl parameter
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: makePrivateOptions.preconditionOpts,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    await executor.retry<void>(
+    await api.execute<void>(
       (client) async {
         final updated = await client.objects.patch(
           metadata,
@@ -739,13 +739,13 @@ class File extends ServiceObject<FileMetadata>
     newFile ??= bucket.file(destName);
     final destinationFile = newFile;
 
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: moveOptions.preconditionOpts,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await executor.retry<File>(
+    return await api.execute<File>(
       (client) async {
         final response = await client.objects.move(
           bucket.id,
@@ -813,13 +813,13 @@ class File extends ServiceObject<FileMetadata>
 
   /// Restore a soft-deleted file.
   Future<File> restore(RestoreFileOptions options) async {
-    final executor = RetryExecutor(
+    final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await executor.retry<File>(
+    return await api.execute<File>(
       (client) async {
         final response = await client.objects.restore(
           bucket.id,
