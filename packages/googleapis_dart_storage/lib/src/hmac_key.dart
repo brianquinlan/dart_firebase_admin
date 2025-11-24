@@ -108,21 +108,14 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
     // for base class compatibility. userProject is not supported via options.
     final api = ApiExecutor(storage);
 
-    try {
-      await api.executeWithProjectId<void>(
-        (client, projectId) async {
-          await client.projects.hmacKeys.delete(
-            projectId,
-            accessId,
-          );
-        },
-      );
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
-      }
-      throw ApiError('Failed to delete HMAC key $accessId', details: e);
-    }
+    await api.executeWithProjectId<void>(
+      (client, projectId) async {
+        await client.projects.hmacKeys.delete(
+          projectId,
+          accessId,
+        );
+      },
+    );
   }
 
   /// Retrieve and populate this HMAC key's metadata, and return this [HmacKey]
@@ -152,23 +145,16 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   Future<HmacKeyMetadata> getMetadata({String? userProject}) async {
     final api = ApiExecutor(storage);
 
-    try {
-      final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
-        (client, projectId) async => await client.projects.hmacKeys.get(
-          projectId,
-          accessId,
-          userProject: userProject,
-        ),
-      );
+    final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
+      (client, projectId) async => await client.projects.hmacKeys.get(
+        projectId,
+        accessId,
+        userProject: userProject,
+      ),
+    );
 
-      setInstanceMetadata(metadata);
-      return metadata;
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
-      }
-      throw ApiError('Failed to get HMAC key metadata $accessId', details: e);
-    }
+    setInstanceMetadata(metadata);
+    return metadata;
   }
 
   /// Get the HMAC key metadata and return this instance.
@@ -215,22 +201,14 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
       ..state = updateMetadata.state
       ..etag = updateMetadata.etag;
 
-    try {
-      final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
-        (client, projectId) async => await client.projects.hmacKeys.update(
-          request,
-          projectId,
-          accessId,
-        ),
-      );
-      setInstanceMetadata(metadata);
-      return metadata;
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
-      }
-      throw ApiError('Failed to update HMAC key metadata $accessId',
-          details: e);
-    }
+    final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
+      (client, projectId) async => await client.projects.hmacKeys.update(
+        request,
+        projectId,
+        accessId,
+      ),
+    );
+    setInstanceMetadata(metadata);
+    return metadata;
   }
 }

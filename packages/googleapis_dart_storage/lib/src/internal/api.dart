@@ -242,7 +242,15 @@ class ApiExecutor {
   Future<T> _executeWithRetry<T>(Future<T> Function() operation) async {
     // If retries are disabled, execute the operation once and return the result.
     if (!_effectiveRetry.autoRetry || _effectiveRetry.maxRetries <= 0) {
-      return await operation();
+      try {
+        return await operation();
+      } catch (e) {
+        // Convert DetailedApiRequestError to ApiError before propagating
+        if (e is! ApiError) {
+          throw ApiError.fromException(e);
+        }
+        rethrow;
+      }
     }
 
     final errorClassifier = _classify ?? defaultShouldRetryError;
@@ -254,16 +262,19 @@ class ApiExecutor {
       try {
         return await operation();
       } catch (e) {
+        // Convert DetailedApiRequestError to ApiError before retry logic
+        final apiError = e is ApiError ? e : ApiError.fromException(e);
+        
         attempt++;
         final elapsed = DateTime.now().difference(start);
         if (attempt > _effectiveRetry.maxRetries ||
             elapsed >= _effectiveRetry.totalTimeout) {
-          rethrow;
+          throw apiError;
         }
 
-        final shouldRetry = errorClassifier(e) ||
-            (_effectiveRetry.retryableErrorFn?.call(e) ?? false);
-        if (!shouldRetry) rethrow;
+        final shouldRetry = errorClassifier(apiError) ||
+            (_effectiveRetry.retryableErrorFn?.call(apiError) ?? false);
+        if (!shouldRetry) throw apiError;
 
         if (delay > _effectiveRetry.maxRetryDelay) {
           delay = _effectiveRetry.maxRetryDelay;

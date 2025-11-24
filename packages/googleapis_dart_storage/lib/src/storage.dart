@@ -121,60 +121,51 @@ class Storage extends Service<StorageOptions> {
       throw ArgumentError('Bucket name is required');
     }
 
-    try {
-      return await api.executeWithProjectId(
-        (client, projectId) async {
-          final inner = await client.buckets.insert(
-            bucket,
-            projectId,
-          );
+    return await api.executeWithProjectId(
+      (client, projectId) async {
+        final inner = await client.buckets.insert(
+          bucket,
+          projectId,
+        );
 
-          final instance = this.bucket(bucket.name!);
-          instance.setInstanceMetadata(inner);
-          return instance;
-        },
-      );
-    } catch (e) {
-      print(e);
-      throw ApiError('Failed to create bucket', details: e);
-    }
+        final instance = this.bucket(bucket.name!);
+        instance.setInstanceMetadata(inner);
+        return instance;
+      },
+    );
   }
 
   Future<HmacKey> createHmacKey(String serviceAccountEmail,
       [CreateHmacKeyOptions? options]) async {
     final api = ApiExecutor.withoutRetries(this);
 
-    try {
-      return await api.executeWithProjectId<HmacKey>(
-        projectIdOverride: options?.projectId,
-        (client, projectId) async {
-          final response = await client.projects.hmacKeys.create(
-            projectId,
-            serviceAccountEmail,
-            userProject: options?.userProject,
+    return await api.executeWithProjectId<HmacKey>(
+      projectIdOverride: options?.projectId,
+      (client, projectId) async {
+        final response = await client.projects.hmacKeys.create(
+          projectId,
+          serviceAccountEmail,
+          userProject: options?.userProject,
+        );
+
+        final metadata = response.metadata;
+
+        if (metadata == null) {
+          throw ApiError(
+            'Failed to create HMAC key',
+            details: 'No metadata returned',
           );
+        }
 
-          final metadata = response.metadata;
-
-          if (metadata == null) {
-            throw ApiError(
-              'Failed to create HMAC key',
-              details: 'No metadata returned',
-            );
-          }
-
-          final hmacKey = HmacKey._(
-            this,
-            metadata.accessId!,
-            options: HmacKeyOptions(projectId: metadata.projectId),
-          );
-          hmacKey.setInstanceMetadata(metadata);
-          return hmacKey;
-        },
-      );
-    } catch (e) {
-      throw ApiError('Failed to create HMAC key', details: e);
-    }
+        final hmacKey = HmacKey._(
+          this,
+          metadata.accessId!,
+          options: HmacKeyOptions(projectId: metadata.projectId),
+        );
+        hmacKey.setInstanceMetadata(metadata);
+        return hmacKey;
+      },
+    );
   }
 
   Future<(List<Bucket> buckets, GetBucketsOptions? nextQuery)> getBuckets(
@@ -192,38 +183,34 @@ class Storage extends Service<StorageOptions> {
     } else {
       // Single page request - no auto-pagination
       final api = ApiExecutor(this);
-      try {
-        final response = await api.executeWithProjectId(
-          projectIdOverride: opts.projectId,
-          (client, projectId) async {
-            return await client.buckets.list(
-              projectId,
-              maxResults: opts.maxResults,
-              pageToken: opts.pageToken,
-              prefix: opts.prefix,
-              projection: opts.projection?.name,
-              softDeleted: opts.softDeleted,
-              userProject: opts.userProject,
-            );
-          },
-        );
+      final response = await api.executeWithProjectId(
+        projectIdOverride: opts.projectId,
+        (client, projectId) async {
+          return await client.buckets.list(
+            projectId,
+            maxResults: opts.maxResults,
+            pageToken: opts.pageToken,
+            prefix: opts.prefix,
+            projection: opts.projection?.name,
+            softDeleted: opts.softDeleted,
+            userProject: opts.userProject,
+          );
+        },
+      );
 
-        final itemsArray = response.items ?? [];
-        final buckets = itemsArray.map((bucketMetadata) {
-          final bucketInstance = bucket(bucketMetadata.id!);
-          bucketInstance.setInstanceMetadata(bucketMetadata);
-          return bucketInstance;
-        }).toList();
+      final itemsArray = response.items ?? [];
+      final buckets = itemsArray.map((bucketMetadata) {
+        final bucketInstance = bucket(bucketMetadata.id!);
+        bucketInstance.setInstanceMetadata(bucketMetadata);
+        return bucketInstance;
+      }).toList();
 
-        // Build nextQuery if there's a nextPageToken
-        final nextQuery = response.nextPageToken != null
-            ? opts.copyWith(pageToken: response.nextPageToken)
-            : null;
+      // Build nextQuery if there's a nextPageToken
+      final nextQuery = response.nextPageToken != null
+          ? opts.copyWith(pageToken: response.nextPageToken)
+          : null;
 
-        return (buckets, nextQuery);
-      } catch (e) {
-        throw ApiError('Failed to get buckets', details: e);
-      }
+      return (buckets, nextQuery);
     }
   }
 
@@ -284,41 +271,36 @@ class Storage extends Service<StorageOptions> {
     } else {
       // Single page request - no auto-pagination
       final api = ApiExecutor(this);
-      try {
-        final response = await api.executeWithProjectId(
-          projectIdOverride: opts.projectId,
-          (client, projectId) async {
-            return await client.projects.hmacKeys.list(
-              projectId,
-              serviceAccountEmail: opts.serviceAccountEmail,
-              showDeletedKeys: opts.showDeletedKeys,
-              maxResults: opts.maxResults,
-              pageToken: opts.pageToken,
-              userProject: opts.userProject,
-            );
-          },
-        );
-
-        final itemsArray = response.items ?? [];
-        final keys = itemsArray.map((hmacKeyMetadata) {
-          final hmacKeyInstance = hmacKey(
-            hmacKeyMetadata.accessId!,
-            HmacKeyOptions(projectId: hmacKeyMetadata.projectId),
+      final response = await api.executeWithProjectId(
+        projectIdOverride: opts.projectId,
+        (client, projectId) async {
+          return await client.projects.hmacKeys.list(
+            projectId,
+            serviceAccountEmail: opts.serviceAccountEmail,
+            showDeletedKeys: opts.showDeletedKeys,
+            maxResults: opts.maxResults,
+            pageToken: opts.pageToken,
+            userProject: opts.userProject,
           );
-          hmacKeyInstance.setInstanceMetadata(hmacKeyMetadata);
-          return hmacKeyInstance;
-        }).toList();
+        },
+      );
 
-        // Build nextQuery if there's a nextPageToken
-        final nextQuery = response.nextPageToken != null
-            ? opts.copyWith(pageToken: response.nextPageToken)
-            : null;
+      final itemsArray = response.items ?? [];
+      final keys = itemsArray.map((hmacKeyMetadata) {
+        final hmacKeyInstance = hmacKey(
+          hmacKeyMetadata.accessId!,
+          HmacKeyOptions(projectId: hmacKeyMetadata.projectId),
+        );
+        hmacKeyInstance.setInstanceMetadata(hmacKeyMetadata);
+        return hmacKeyInstance;
+      }).toList();
 
-        return (keys, nextQuery);
-      } catch (e) {
-        print(e);
-        throw ApiError('Failed to get HMAC keys', details: e);
-      }
+      // Build nextQuery if there's a nextPageToken
+      final nextQuery = response.nextPageToken != null
+          ? opts.copyWith(pageToken: response.nextPageToken)
+          : null;
+
+      return (keys, nextQuery);
     }
   }
 
@@ -370,19 +352,15 @@ class Storage extends Service<StorageOptions> {
       [GetServiceAccountOptions? options]) async {
     final api = ApiExecutor(this);
 
-    try {
-      return await api.executeWithProjectId(
-        projectIdOverride: options?.projectId,
-        (client, projectId) async {
-          return client.projects.serviceAccount.get(
-            projectId,
-            userProject: options?.userProject,
-          );
-        },
-      );
-    } catch (e) {
-      throw ApiError('Failed to get service account', details: e);
-    }
+    return await api.executeWithProjectId(
+      projectIdOverride: options?.projectId,
+      (client, projectId) async {
+        return client.projects.serviceAccount.get(
+          projectId,
+          userProject: options?.userProject,
+        );
+      },
+    );
   }
 
   HmacKey hmacKey(String accessId, [HmacKeyOptions? options]) {
