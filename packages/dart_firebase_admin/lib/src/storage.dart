@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'app.dart';
 
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart'
-    as storage_api;
+import 'package:googleapis_storage/googleapis_storage.dart' as storage_api;
+
+import 'app.dart';
 
 class Storage {
   Storage(this.app) {
@@ -15,7 +15,8 @@ class Storage {
       if (RegExp('https?://').hasMatch(firebaseStorageEmulatorHost)) {
         // TODO: Use exception class
         throw Exception(
-            'FIREBASE_STORAGE_EMULATOR_HOST should not contain a protocol (http or https).');
+          'FIREBASE_STORAGE_EMULATOR_HOST should not contain a protocol (http or https).',
+        );
       }
       apiEndpoint = 'http://$firebaseStorageEmulatorHost';
     }
@@ -28,13 +29,12 @@ class Storage {
     );
   }
 
-  final FirebaseAdminApp app;
+  final FirebaseApp app;
   late final storage_api.Storage _delegate;
 
   storage_api.Bucket bucket(String? name) {
-    // final bucketName = name ?? app.options.storageBucket;
-    final bucketName = name!; // TODO: This should come from options.
-    if (bucketName.isEmpty) {
+    final bucketName = name ?? app.options.storageBucket;
+    if (bucketName == null || bucketName.isEmpty) {
       // TODO: Use exception class
       throw Exception(
         'Bucket name not specified or invalid. Specify a valid bucket name via the '
@@ -43,8 +43,6 @@ class Storage {
       );
     }
 
-    assert(bucketName.isNotEmpty, 'Bucket name is required');
-
-    return _delegate.bucket(name);
+    return _delegate.bucket(bucketName);
   }
 }

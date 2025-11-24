@@ -163,7 +163,7 @@ abstract class Service<T extends ServiceOptions> {
   // Map<String, String> buildHeaders([Map<String, String>? extra]) {
   //   final headers = <String, String>{
   //     HttpHeaders.userAgentHeader:
-  //         userAgent ?? 'googleapis_dart_storage/0.1.0 (dart)',
+  //         userAgent ?? 'googleapis_storage/0.1.0 (dart)',
   //     'x-goog-api-client': 'gl-dart/3 gccl/0.1.0',
   //   };
   //   if (extra != null) {

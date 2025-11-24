@@ -1,6 +1,6 @@
 import 'package:googleapis/storage/v1.dart' as storage_v1;
 import 'package:googleapis_auth/auth_io.dart' as auth;
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -19,10 +19,12 @@ class TestStorage extends Storage {
   final storage_v1.StorageApi mockClient;
 
   TestStorage(this.mockClient)
-      : super(StorageOptions(
+    : super(
+        StorageOptions(
           authClient: MockAuthClient(),
           useAuthWithCustomEndpoint: false,
-        ));
+        ),
+      );
 
   @override
   Future<storage_v1.StorageApi> get storageClient async => mockClient;
@@ -115,25 +117,27 @@ void main() {
       test('should throw when projectId is not provided', () {
         expect(
           () => storage.hmacKey('test-access-id'),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Project ID is required'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Project ID is required'),
+            ),
+          ),
         );
       });
 
       test('should throw when projectId is empty', () {
         expect(
-          () => storage.hmacKey(
-            'test-access-id',
-            HmacKeyOptions(projectId: ''),
+          () =>
+              storage.hmacKey('test-access-id', HmacKeyOptions(projectId: '')),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Project ID is required'),
+            ),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Project ID is required'),
-          )),
         );
       });
     });
@@ -149,58 +153,70 @@ void main() {
       });
 
       test('should call hmacKeys.delete with correct parameters', () async {
-        when(() => mockHmacKeys.delete(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => '');
+        when(
+          () => mockHmacKeys.delete(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => '');
 
         await hmacKey.delete();
 
-        verify(() => mockHmacKeys.delete(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.delete(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('should throw ApiError on failure', () async {
-        when(() => mockHmacKeys.delete(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(Exception('API Error'));
+        when(
+          () => mockHmacKeys.delete(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(Exception('API Error'));
 
         expect(
           () => hmacKey.delete(),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to delete HMAC key'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to delete HMAC key'),
+            ),
+          ),
         );
       });
 
-      test('should accept PreconditionOptions for base class compatibility',
-          () async {
-        when(() => mockHmacKeys.delete(
+      test(
+        'should accept PreconditionOptions for base class compatibility',
+        () async {
+          when(
+            () => mockHmacKeys.delete(
               any(),
               any(),
               userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => '');
+            ),
+          ).thenAnswer((_) async => '');
 
-        await hmacKey.delete(
-          options: const PreconditionOptions(
-            ifMetagenerationMatch: 123,
-          ),
-        );
+          await hmacKey.delete(
+            options: const PreconditionOptions(ifMetagenerationMatch: 123),
+          );
 
-        verify(() => mockHmacKeys.delete(
+          verify(
+            () => mockHmacKeys.delete(
               'test-project',
               'test-access-id',
               userProject: null,
-            )).called(1);
-      });
+            ),
+          ).called(1);
+        },
+      );
     });
 
     group('getMetadata', () {
@@ -221,19 +237,23 @@ void main() {
           ..etag = 'test-etag'
           ..serviceAccountEmail = 'test@example.com';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         final result = await hmacKey.getMetadata();
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
 
         expect(result.accessId, 'test-access-id');
         expect(result.projectId, 'test-project');
@@ -251,32 +271,35 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.getMetadata(userProject: 'my-project');
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: 'my-project',
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: 'my-project',
+          ),
+        ).called(1);
       });
 
       test('should throw ApiError on failure', () async {
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(Exception('API Error'));
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(Exception('API Error'));
 
-        expect(
-          () => hmacKey.getMetadata(),
-          throwsA(isA<ApiError>()),
-        );
+        expect(() => hmacKey.getMetadata(), throwsA(isA<ApiError>()));
       });
     });
 
@@ -295,19 +318,23 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         final result = await hmacKey.get();
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
 
         expect(result, isA<storage_v1.HmacKeyMetadata>());
         expect(hmacKey.metadata.state, 'ACTIVE');
@@ -329,19 +356,23 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         final result = await hmacKey.getInstance();
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
 
         expect(result, same(hmacKey));
         expect(result.metadata.state, 'ACTIVE');
@@ -352,19 +383,23 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.getInstance(userProject: 'my-project');
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: 'my-project',
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: 'my-project',
+          ),
+        ).called(1);
       });
     });
 
@@ -389,23 +424,29 @@ void main() {
           ..etag = 'updated-etag'
           ..projectId = 'test-project';
 
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         final result = await hmacKey.setMetadata(updateMetadata);
 
-        verify(() => mockHmacKeys.update(
-              any(
-                  that: predicate<storage_v1.HmacKeyMetadata>(
-                      (m) => m.state == 'INACTIVE' && m.etag == 'test-etag')),
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.update(
+            any(
+              that: predicate<storage_v1.HmacKeyMetadata>(
+                (m) => m.state == 'INACTIVE' && m.etag == 'test-etag',
+              ),
+            ),
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
 
         expect(result.state, 'INACTIVE');
         expect(result.etag, 'updated-etag');
@@ -425,27 +466,34 @@ void main() {
           ..state = 'ACTIVE'
           ..etag = 'updated-etag';
 
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.setMetadata(updateMetadata);
 
-        verify(() => mockHmacKeys.update(
-              any(
-                  that: predicate<storage_v1.HmacKeyMetadata>((m) =>
-                      m.state == 'ACTIVE' &&
-                      m.etag == 'test-etag' &&
-                      m.accessId == null &&
-                      m.projectId == null &&
-                      m.serviceAccountEmail == null)),
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.update(
+            any(
+              that: predicate<storage_v1.HmacKeyMetadata>(
+                (m) =>
+                    m.state == 'ACTIVE' &&
+                    m.etag == 'test-etag' &&
+                    m.accessId == null &&
+                    m.projectId == null &&
+                    m.serviceAccountEmail == null,
+              ),
+            ),
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('should work with SetHmacKeyMetadata', () async {
@@ -459,23 +507,29 @@ void main() {
           ..state = 'INACTIVE'
           ..etag = 'updated-etag';
 
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.setMetadata(updateMetadata);
 
-        verify(() => mockHmacKeys.update(
-              any(
-                  that: predicate<storage_v1.HmacKeyMetadata>(
-                      (m) => m.state == 'INACTIVE' && m.etag == 'test-etag')),
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.update(
+            any(
+              that: predicate<storage_v1.HmacKeyMetadata>(
+                (m) => m.state == 'INACTIVE' && m.etag == 'test-etag',
+              ),
+            ),
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('should update cached metadata after successful update', () async {
@@ -489,12 +543,14 @@ void main() {
           ..etag = 'updated-etag'
           ..projectId = 'test-project';
 
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.setMetadata(updateMetadata);
 
@@ -505,12 +561,14 @@ void main() {
       test('should throw ApiError on failure', () async {
         final updateMetadata = storage_v1.HmacKeyMetadata()..state = 'INACTIVE';
 
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(Exception('API Error'));
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(Exception('API Error'));
 
         expect(
           () => hmacKey.setMetadata(updateMetadata),
@@ -542,37 +600,45 @@ void main() {
         final mockResponse = storage_v1.HmacKeyMetadata()..state = 'INACTIVE';
 
         // First call should succeed, but retries should be disabled
-        when(() => mockHmacKeys.update(
-              any(),
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.update(
+            any(),
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKeyConditional.setMetadata(updateMetadata);
 
-        verify(() => mockHmacKeys.update(
-              any(),
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.update(
+            any(),
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('delete should allow retries by default', () async {
-        when(() => mockHmacKeys.delete(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => '');
+        when(
+          () => mockHmacKeys.delete(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => '');
 
         await hmacKey.delete();
 
-        verify(() => mockHmacKeys.delete(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.delete(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('getMetadata should allow retries by default', () async {
@@ -580,19 +646,23 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         await hmacKey.getMetadata();
 
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
     });
 
@@ -611,30 +681,36 @@ void main() {
           ..accessId = 'test-access-id'
           ..state = 'ACTIVE';
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => mockResponse);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => mockResponse);
 
         final exists = await hmacKey.exists();
 
         expect(exists, isTrue);
-        verify(() => mockHmacKeys.get(
-              'test-project',
-              'test-access-id',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.get(
+            'test-project',
+            'test-access-id',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('exists() should return false on 404', () async {
         final apiError = ApiError('Not found', code: 404);
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(apiError);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(apiError);
 
         final exists = await hmacKey.exists();
 
@@ -644,11 +720,13 @@ void main() {
       test('exists() should rethrow non-404 errors', () async {
         final apiError = ApiError('Forbidden', code: 403);
 
-        when(() => mockHmacKeys.get(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(apiError);
+        when(
+          () => mockHmacKeys.get(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(apiError);
 
         expect(() => hmacKey.exists(), throwsA(isA<ApiError>()));
       });

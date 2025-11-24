@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 typedef Policy = storage_v1.Policy;
 

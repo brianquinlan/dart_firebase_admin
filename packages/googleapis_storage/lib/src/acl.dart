@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 /// Team role within a project team, matching the Node SDK's team values.
 enum ProjectTeamRole {

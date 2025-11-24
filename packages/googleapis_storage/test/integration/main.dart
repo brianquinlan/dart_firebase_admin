@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:googleapis/storage/v1.dart' as storage_v1;
 import 'package:googleapis_auth/auth_io.dart' as auth;
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 import 'package:test/test.dart';
 
 import 'storage.dart';
@@ -20,8 +20,8 @@ auth.AuthClient? authClient;
 String shortUUID() {
   final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
   // Add a random component to avoid collisions if called in same millisecond
-  final random =
-      (timestamp.hashCode ^ DateTime.now().microsecondsSinceEpoch).toString();
+  final random = (timestamp.hashCode ^ DateTime.now().microsecondsSinceEpoch)
+      .toString();
   final bytes = utf8.encode('$timestamp-$random');
   final hash = sha256.convert(bytes);
   return hash.toString().substring(0, 8);
@@ -35,9 +35,11 @@ String generateBucketName() {
 void main() {
   setUpAll(() async {
     // Read PROJECT_ID from environment variable
-    projectId = Platform.environment['PROJECT_ID'] ??
+    projectId =
+        Platform.environment['PROJECT_ID'] ??
         (throw Exception(
-            'PROJECT_ID environment variable is required for integration tests'));
+          'PROJECT_ID environment variable is required for integration tests',
+        ));
 
     // Set up authentication using Application Default Credentials
     authClient = await auth.clientViaApplicationDefaultCredentials(
@@ -47,10 +49,7 @@ void main() {
     // Initialize Storage instance with authenticated client
     // Note: projectId is passed to individual operations, not StorageOptions
     storage = Storage(
-      StorageOptions(
-        projectId: projectId!,
-        authClient: authClient,
-      ),
+      StorageOptions(projectId: projectId!, authClient: authClient),
     );
 
     // Generate test prefix for unique bucket names

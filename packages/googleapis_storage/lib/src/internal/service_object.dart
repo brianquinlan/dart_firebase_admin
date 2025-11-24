@@ -1,4 +1,4 @@
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 import 'service.dart';
 
 mixin CreatableMixin<M, T> on ServiceObject<M> {
@@ -101,7 +101,7 @@ abstract class ServiceObject<M> {
   M _metadata;
 
   ServiceObject({required this.service, required this.id, required M metadata})
-      : _metadata = metadata;
+    : _metadata = metadata;
 
   /// The resource metadata type used by this object.
   M get metadata => _metadata;

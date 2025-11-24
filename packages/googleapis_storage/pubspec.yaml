@@ -1,10 +1,11 @@
-name: googleapis_dart_storage
+name: googleapis_storage
+resolution: workspace
 description: Dart client for Gogole Cloud Storage - unified object storage for developers and enterprises, from live data serving to data analytics/ML to data archiving.
 version: 0.0.1
 # repository: https://github.com/my_org/my_repo
 
 environment:
-  sdk: ">=3.2.0 <4.0.0"
+  sdk: ">=3.9.0 <4.0.0"
 
 dependencies:
   googleapis_auth: ^2.0.0

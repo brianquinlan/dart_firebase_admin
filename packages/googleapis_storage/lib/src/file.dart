@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 final _GS_UTIL_URL_REGEX = RegExp(r'^gs://([a-z0-9_.-]+)/(.+)$');
 final _HTTPS_PUBLIC_URL_REGEX =

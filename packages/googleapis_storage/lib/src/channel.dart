@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 // TODO: Where should this go?
 abstract class WatchAllOptions {

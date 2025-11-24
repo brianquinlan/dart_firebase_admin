@@ -1,4 +1,4 @@
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 
 String assertProjectId(StorageOptions options, String? projectId) {
   // Check if we have a project ID explicitly provided or inherited from the options.

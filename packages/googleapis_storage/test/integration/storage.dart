@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:googleapis/storage/v1.dart' as storage_v1;
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 import 'main.dart';
 
 void storageTests() {
@@ -10,24 +10,27 @@ void storageTests() {
     var createdBuckets = <Bucket>[];
 
     tearDownAll(() async {
-      await Future.wait(createdBuckets.map((bucket) =>
-          bucket.delete(options: DeleteOptions(ignoreNotFound: true))));
+      await Future.wait(
+        createdBuckets.map(
+          (bucket) =>
+              bucket.delete(options: DeleteOptions(ignoreNotFound: true)),
+        ),
+      );
     });
 
     test('should create a bucket', () async {
       // Ensure setup completed successfully
       if (storage == null || projectId == null) {
         fail(
-            'Test setup failed. Check that PROJECT_ID is set and authentication is configured.');
+          'Test setup failed. Check that PROJECT_ID is set and authentication is configured.',
+        );
       }
 
       final bucketName = generateBucketName();
 
       // Create bucket
       final bucketMetadata = storage_v1.Bucket()..name = bucketName;
-      final createdBucket = await storage!.createBucket(
-        bucketMetadata,
-      );
+      final createdBucket = await storage!.createBucket(bucketMetadata);
 
       createdBuckets.add(createdBucket);
 
@@ -77,8 +80,9 @@ void storageTests() {
       );
 
       // Verify our test buckets are in the results
-      final foundBuckets =
-          buckets.where((b) => bucketNames.contains(b.id)).toList();
+      final foundBuckets = buckets
+          .where((b) => bucketNames.contains(b.id))
+          .toList();
       expect(foundBuckets.length, equals(bucketNames.length));
     });
 
@@ -88,10 +92,7 @@ void storageTests() {
       }
 
       final (buckets, nextQuery) = await storage!.getBuckets(
-        GetBucketsOptions(
-          maxResults: 5,
-          autoPaginate: false,
-        ),
+        GetBucketsOptions(maxResults: 5, autoPaginate: false),
       );
 
       expect(buckets.length, lessThanOrEqualTo(5));
@@ -108,10 +109,7 @@ void storageTests() {
 
       // Get first page
       final (firstPage, nextQuery) = await storage!.getBuckets(
-        GetBucketsOptions(
-          maxResults: 2,
-          autoPaginate: false,
-        ),
+        GetBucketsOptions(maxResults: 2, autoPaginate: false),
       );
 
       expect(firstPage.length, lessThanOrEqualTo(2));
@@ -123,8 +121,11 @@ void storageTests() {
         // Verify no overlap (assuming bucket names are unique)
         final firstPageIds = firstPage.map((b) => b.id).toSet();
         final secondPageIds = secondPage.map((b) => b.id).toSet();
-        expect(firstPageIds.intersection(secondPageIds).isEmpty, isTrue,
-            reason: 'Pages should not have overlapping buckets');
+        expect(
+          firstPageIds.intersection(secondPageIds).isEmpty,
+          isTrue,
+          reason: 'Pages should not have overlapping buckets',
+        );
       }
     });
 
@@ -160,8 +161,11 @@ void storageTests() {
       }
 
       // Verify at least one bucket was emitted (there should be at least the test buckets)
-      expect(bucketEmitted, isTrue,
-          reason: 'At least one bucket should be emitted from stream');
+      expect(
+        bucketEmitted,
+        isTrue,
+        reason: 'At least one bucket should be emitted from stream',
+      );
     });
   });
 
@@ -199,7 +203,8 @@ void storageTests() {
       } catch (e) {
         // Service account might not exist or not have permissions
         print(
-            'Warning: Could not access HMAC keys for service account $serviceAccountEmail: $e');
+          'Warning: Could not access HMAC keys for service account $serviceAccountEmail: $e',
+        );
         serviceAccountEmail = null;
       }
     });
@@ -237,8 +242,9 @@ void storageTests() {
         // Provide better error message for HMAC key creation failures
         if (e is ApiError) {
           fail(
-              'Failed to create HMAC key: ${e.message}. Details: ${e.details}. '
-              'Make sure the service account $serviceAccountEmail exists and has proper permissions.');
+            'Failed to create HMAC key: ${e.message}. Details: ${e.details}. '
+            'Make sure the service account $serviceAccountEmail exists and has proper permissions.',
+          );
         }
         rethrow;
       } finally {
@@ -562,10 +568,7 @@ void storageTests() {
         // Deactivate first (required before deletion)
         final metadata = await createdKey.getMetadata();
         await createdKey.setMetadata(
-          SetHmacKeyMetadata(
-            state: HmacKeyState.inactive,
-            etag: metadata.etag,
-          ),
+          SetHmacKeyMetadata(state: HmacKeyState.inactive, etag: metadata.etag),
         );
 
         // Delete the key

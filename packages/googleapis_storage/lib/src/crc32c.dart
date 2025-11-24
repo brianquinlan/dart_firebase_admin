@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 /// A validator interface for CRC32C hashing and validation, analogous to the
 /// Node.js `CRC32CValidator`.

@@ -1,9 +1,11 @@
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 
 void main() async {
-  final storage = Storage(StorageOptions(
+  final storage = Storage(
+    StorageOptions(
       // apiEndpoint: 'http://localhost:9000',
-      ));
+    ),
+  );
 
   final bucket = storage.bucket('test-bucket');
 

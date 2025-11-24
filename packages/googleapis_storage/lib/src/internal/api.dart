@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:googleapis/storage/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 
 /// Matches the Node SDK IdempotencyStrategy enum semantics.
 enum IdempotencyStrategy { retryAlways, retryConditional, retryNever }
@@ -76,9 +76,8 @@ bool _shouldRetryMutation(
 ) {
   final conditionalWithoutPrecondition =
       getPreconditionValue(callPreconditions) == null &&
-          getPreconditionValue(instancePreconditions) == null &&
-          retryOptions.idempotencyStrategy ==
-              IdempotencyStrategy.retryConditional;
+      getPreconditionValue(instancePreconditions) == null &&
+      retryOptions.idempotencyStrategy == IdempotencyStrategy.retryConditional;
 
   final neverStrategy =
       retryOptions.idempotencyStrategy == IdempotencyStrategy.retryNever;
@@ -123,11 +122,12 @@ bool shouldRetryBucketMutation(
 }
 
 /// Function type for determining if a mutation should be retried based on preconditions.
-typedef ShouldRetryMutationFn = bool Function(
-  PreconditionOptions? callPreconditions,
-  PreconditionOptions? instancePreconditions,
-  RetryOptions retryOptions,
-);
+typedef ShouldRetryMutationFn =
+    bool Function(
+      PreconditionOptions? callPreconditions,
+      PreconditionOptions? instancePreconditions,
+      RetryOptions retryOptions,
+    );
 
 /// Generic retry executor implementing exponential backoff.
 class ApiExecutor {
@@ -151,9 +151,8 @@ class ApiExecutor {
     this.instancePreconditions,
     ShouldRetryMutationFn? shouldRetryMutation,
     bool Function(dynamic error)? classify,
-  })  : preconditionOptions =
-            preconditionOptions ?? const PreconditionOptions(),
-        _classify = classify {
+  }) : preconditionOptions = preconditionOptions ?? const PreconditionOptions(),
+       _classify = classify {
     // If retryOptions is explicitly provided, use it directly
     if (retryOptions != null) {
       _effectiveRetry = retryOptions;
@@ -197,9 +196,7 @@ class ApiExecutor {
   ///
   /// For operations that don't require a projectId (e.g., bucket-scoped operations).
   /// Use [executeWithProjectId] for operations that need a projectId.
-  Future<T> execute<T>(
-    Future<T> Function(StorageApi client) operation,
-  ) async {
+  Future<T> execute<T>(Future<T> Function(StorageApi client) operation) async {
     return _executeWithRetry(() async {
       final storageClient = await storage.storageClient;
       return operation(storageClient);
@@ -223,7 +220,8 @@ class ApiExecutor {
       // Resolve projectId: use override if provided, otherwise use storage.options.projectId,
       // or try to get from authClient. This matches Node.js behavior:
       // `const projectId = query.projectId || this.projectId;`
-      final resolvedProjectId = projectIdOverride ??
+      final resolvedProjectId =
+          projectIdOverride ??
           storage.options.projectId ??
           await authClient.getProjectId();
 
@@ -272,7 +270,8 @@ class ApiExecutor {
           throw apiError;
         }
 
-        final shouldRetry = errorClassifier(apiError) ||
+        final shouldRetry =
+            errorClassifier(apiError) ||
             (_effectiveRetry.retryableErrorFn?.call(apiError) ?? false);
         if (!shouldRetry) throw apiError;
 

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:typed_data';
 
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
 import 'package:test/test.dart';
 
 /// Known input to CRC32C mappings, validated from actual GCS object uploads.
@@ -38,50 +38,54 @@ void main() {
 
     group('update', () {
       test(
-          'should produce the correct calculation given the input (single buffer)',
-          () {
-        for (final entry in knownInputToCrc32c.entries) {
-          final input = entry.key;
-          final expected = entry.value;
+        'should produce the correct calculation given the input (single buffer)',
+        () {
+          for (final entry in knownInputToCrc32c.entries) {
+            final input = entry.key;
+            final expected = entry.value;
 
-          final crc32c = Crc32c();
-          final bytes = utf8.encode(input);
+            final crc32c = Crc32c();
+            final bytes = utf8.encode(input);
 
-          crc32c.update(bytes);
+            crc32c.update(bytes);
 
-          final result = crc32c.toString();
+            final result = crc32c.toString();
 
-          expect(
-            result,
-            expected,
-            reason: "Expected '$input' to produce `$expected` - not `$result`",
-          );
-        }
-      });
+            expect(
+              result,
+              expected,
+              reason:
+                  "Expected '$input' to produce `$expected` - not `$result`",
+            );
+          }
+        },
+      );
 
       test(
-          'should produce the correct calculation given the input (multiple buffers)',
-          () {
-        for (final entry in knownInputToCrc32c.entries) {
-          final input = entry.key;
-          final expected = entry.value;
+        'should produce the correct calculation given the input (multiple buffers)',
+        () {
+          for (final entry in knownInputToCrc32c.entries) {
+            final input = entry.key;
+            final expected = entry.value;
 
-          final crc32c = Crc32c();
+            final crc32c = Crc32c();
 
-          for (final char in input.split('')) {
-            final bytes = utf8.encode(char);
-            crc32c.update(bytes);
+            for (final char in input.split('')) {
+              final bytes = utf8.encode(char);
+              crc32c.update(bytes);
+            }
+
+            final result = crc32c.toString();
+
+            expect(
+              result,
+              expected,
+              reason:
+                  "Expected '$input' to produce `$expected` - not `$result`",
+            );
           }
-
-          final result = crc32c.toString();
-
-          expect(
-            result,
-            expected,
-            reason: "Expected '$input' to produce `$expected` - not `$result`",
-          );
-        }
-      });
+        },
+      );
 
       test('should not mutate a provided buffer', () {
         final crc32c = Crc32c();
@@ -183,15 +187,13 @@ void main() {
 
           final crc32c = Crc32c();
           final crc32cExpectedValidator = _MockCrc32cValidator(expected);
-          final wrongCrc32cValidator = _MockCrc32cValidator(
-            () {
-              final crc32c = Crc32c();
-              // Want to test against a value generated in a valid way
-              final wrongBufferInput = utf8.encode('$input ');
-              crc32c.update(wrongBufferInput);
-              return crc32c.toString();
-            },
-          );
+          final wrongCrc32cValidator = _MockCrc32cValidator(() {
+            final crc32c = Crc32c();
+            // Want to test against a value generated in a valid way
+            final wrongBufferInput = utf8.encode('$input ');
+            crc32c.update(wrongBufferInput);
+            return crc32c.toString();
+          });
 
           crc32c.update(utf8.encode(input));
 
@@ -257,8 +259,9 @@ void main() {
           crc32c.update(utf8.encode(input));
 
           final expectedBytes = base64Decode(expected);
-          final expectedNumber =
-              ByteData.sublistView(expectedBytes).getInt32(0, Endian.big);
+          final expectedNumber = ByteData.sublistView(
+            expectedBytes,
+          ).getInt32(0, Endian.big);
 
           expect(crc32c.valueOf(), expectedNumber);
           expect(crc32c.valueOf(), crc32c.value);
@@ -296,8 +299,9 @@ void main() {
           crc32c.update(utf8.encode(input));
 
           final expectedBytes = base64Decode(expected);
-          final expectedNumber =
-              ByteData.sublistView(expectedBytes).getInt32(0, Endian.big);
+          final expectedNumber = ByteData.sublistView(
+            expectedBytes,
+          ).getInt32(0, Endian.big);
 
           expect(crc32c.value, expectedNumber);
           expect(crc32c.value, crc32c.valueOf());
@@ -346,8 +350,9 @@ void main() {
           for (final entry in knownInputToCrc32c.entries) {
             final expected = entry.value;
             final expectedBytes = base64Decode(expected);
-            final number =
-                ByteData.sublistView(expectedBytes).getInt32(0, Endian.big);
+            final number = ByteData.sublistView(
+              expectedBytes,
+            ).getInt32(0, Endian.big);
 
             final crc32c = Crc32c.from(number);
 
@@ -370,16 +375,10 @@ void main() {
 
           for (final number in invalidSet) {
             if (number is int) {
-              expect(
-                () => Crc32c.from(number),
-                throwsA(isA<RangeError>()),
-              );
+              expect(() => Crc32c.from(number), throwsA(isA<RangeError>()));
             } else {
               // NaN and doubles will throw ArgumentError
-              expect(
-                () => Crc32c.from(number),
-                throwsA(isA<ArgumentError>()),
-              );
+              expect(() => Crc32c.from(number), throwsA(isA<ArgumentError>()));
             }
           }
         });
@@ -404,10 +403,7 @@ void main() {
             final buffer = Uint8List(i);
             final string = base64Encode(buffer);
 
-            expect(
-              () => Crc32c.from(string),
-              throwsA(isA<RangeError>()),
-            );
+            expect(() => Crc32c.from(string), throwsA(isA<RangeError>()));
           }
         });
       });
@@ -436,10 +432,7 @@ void main() {
 
             final buffer = Uint8List(i);
 
-            expect(
-              () => Crc32c.from(buffer),
-              throwsA(isA<RangeError>()),
-            );
+            expect(() => Crc32c.from(buffer), throwsA(isA<RangeError>()));
           }
         });
       });
@@ -495,10 +488,7 @@ void main() {
 
       group('error cases', () {
         test('should throw ArgumentError on unsupported types', () {
-          expect(
-            () => Crc32c.from(<String>[]),
-            throwsA(isA<ArgumentError>()),
-          );
+          expect(() => Crc32c.from(<String>[]), throwsA(isA<ArgumentError>()));
           expect(
             () => Crc32c.from({'key': 'value'}),
             throwsA(isA<ArgumentError>()),
@@ -563,9 +553,9 @@ class _MockCrc32cValidator implements Crc32cValidator {
   final String Function() _toBase64;
 
   _MockCrc32cValidator(Object toBase64)
-      : _toBase64 = toBase64 is String
-            ? (() => toBase64)
-            : (toBase64 as String Function());
+    : _toBase64 = toBase64 is String
+          ? (() => toBase64)
+          : (toBase64 as String Function());
 
   @override
   void update(List<int> data) {

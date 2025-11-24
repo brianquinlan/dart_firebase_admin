@@ -1,4 +1,4 @@
-part of '../googleapis_dart_storage.dart';
+part of '../googleapis_storage.dart';
 
 /// Options when constructing an [HmacKey] handle.
 class HmacKeyOptions {

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:googleapis/storage/v1.dart' as storage_v1;
-import 'package:googleapis_dart_storage/googleapis_dart_storage.dart';
-import 'package:googleapis_dart_storage/src/internal/api.dart';
+import 'package:googleapis_storage/googleapis_storage.dart';
+import 'package:googleapis_storage/src/internal/api.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:mocktail/mocktail.dart';
@@ -28,11 +28,13 @@ class TestStorage extends Storage {
   final storage_v1.StorageApi mockClient;
 
   TestStorage(this.mockClient, {String? projectId})
-      : super(_TestStorageOptions(
+    : super(
+        _TestStorageOptions(
           projectId: projectId ?? 'test-project',
           authClient: MockAuthClient(),
           useAuthWithCustomEndpoint: false,
-        ));
+        ),
+      );
 
   @override
   Future<storage_v1.StorageApi> get storageClient async => mockClient;
@@ -54,8 +56,8 @@ class _TestStorageOptions extends StorageOptions {
     super.crc32cGenerator,
     super.retryOptions,
     super.universeDomain,
-  })  : _projectId = projectId,
-        super();
+  }) : _projectId = projectId,
+       super();
 
   final String _projectId;
 
@@ -92,8 +94,10 @@ void main() {
     test('should create with default values', () {
       const options = StorageOptions();
       expect(options.apiEndpoint, isNull);
-      expect(options.crc32cGenerator,
-          isNull); // Default is applied in Storage constructor
+      expect(
+        options.crc32cGenerator,
+        isNull,
+      ); // Default is applied in Storage constructor
       expect(options.retryOptions, isNull);
       expect(options.authClient, isNull);
       expect(options.useAuthWithCustomEndpoint, isNull);
@@ -149,9 +153,7 @@ void main() {
           retryOptions: originalRetryOptions,
         );
 
-        final copied = originalOptions.copyWith(
-          universeDomain: 'new.com',
-        );
+        final copied = originalOptions.copyWith(universeDomain: 'new.com');
 
         expect(copied.apiEndpoint, 'https://original.example.com');
         expect(copied.retryOptions, originalRetryOptions);
@@ -182,9 +184,7 @@ void main() {
         );
 
         final newGenerator = defaultCrc32cValidatorGenerator;
-        final copied = originalOptions.copyWith(
-          crc32cGenerator: newGenerator,
-        );
+        final copied = originalOptions.copyWith(crc32cGenerator: newGenerator);
 
         expect(copied.crc32cGenerator, newGenerator);
         expect(originalOptions.crc32cGenerator, originalGenerator);
@@ -250,73 +250,61 @@ void main() {
 
       test('should use STORAGE_EMULATOR_HOST from environment', () async {
         const emulatorHost = 'localhost:8080';
-        final testEnv = <String, String>{
-          'STORAGE_EMULATOR_HOST': emulatorHost,
-        };
+        final testEnv = <String, String>{'STORAGE_EMULATOR_HOST': emulatorHost};
 
-        await runZoned(
-          () {
-            final storage = Storage(const StorageOptions());
-            expect(storage.config.apiEndpoint, 'https://$emulatorHost');
-            expect(storage.config.customEndpoint, true);
-          },
-          zoneValues: {envSymbol: testEnv},
-        );
+        await runZoned(() {
+          final storage = Storage(const StorageOptions());
+          expect(storage.config.apiEndpoint, 'https://$emulatorHost');
+          expect(storage.config.customEndpoint, true);
+        }, zoneValues: {envSymbol: testEnv});
       });
 
-      test('should prioritize explicit apiEndpoint over STORAGE_EMULATOR_HOST',
-          () async {
-        const emulatorHost = 'localhost:8080';
-        const explicitEndpoint = 'https://override.example.com';
-        final testEnv = <String, String>{
-          'STORAGE_EMULATOR_HOST': emulatorHost,
-        };
+      test(
+        'should prioritize explicit apiEndpoint over STORAGE_EMULATOR_HOST',
+        () async {
+          const emulatorHost = 'localhost:8080';
+          const explicitEndpoint = 'https://override.example.com';
+          final testEnv = <String, String>{
+            'STORAGE_EMULATOR_HOST': emulatorHost,
+          };
 
-        await runZoned(
-          () {
+          await runZoned(() {
             final storage = Storage(
               const StorageOptions(apiEndpoint: explicitEndpoint),
             );
             // Explicit apiEndpoint should take precedence
             expect(storage.config.apiEndpoint, explicitEndpoint);
             expect(storage.config.customEndpoint, true);
-          },
-          zoneValues: {envSymbol: testEnv},
-        );
-      });
+          }, zoneValues: {envSymbol: testEnv});
+        },
+      );
 
       test('should sanitize STORAGE_EMULATOR_HOST without protocol', () async {
         const emulatorHost = 'localhost:8080';
-        final testEnv = <String, String>{
-          'STORAGE_EMULATOR_HOST': emulatorHost,
-        };
+        final testEnv = <String, String>{'STORAGE_EMULATOR_HOST': emulatorHost};
 
-        await runZoned(
-          () {
-            final storage = Storage(const StorageOptions());
-            // Should add https:// prefix
-            expect(storage.config.apiEndpoint, 'https://$emulatorHost');
-          },
-          zoneValues: {envSymbol: testEnv},
-        );
+        await runZoned(() {
+          final storage = Storage(const StorageOptions());
+          // Should add https:// prefix
+          expect(storage.config.apiEndpoint, 'https://$emulatorHost');
+        }, zoneValues: {envSymbol: testEnv});
       });
 
-      test('should sanitize STORAGE_EMULATOR_HOST with trailing slashes',
-          () async {
-        const emulatorHost = 'localhost:8080///';
-        final testEnv = <String, String>{
-          'STORAGE_EMULATOR_HOST': emulatorHost,
-        };
+      test(
+        'should sanitize STORAGE_EMULATOR_HOST with trailing slashes',
+        () async {
+          const emulatorHost = 'localhost:8080///';
+          final testEnv = <String, String>{
+            'STORAGE_EMULATOR_HOST': emulatorHost,
+          };
 
-        await runZoned(
-          () {
+          await runZoned(() {
             final storage = Storage(const StorageOptions());
             // Should remove trailing slashes
             expect(storage.config.apiEndpoint, 'https://localhost:8080');
-          },
-          zoneValues: {envSymbol: testEnv},
-        );
-      });
+          }, zoneValues: {envSymbol: testEnv});
+        },
+      );
     });
 
     group('retryOptions', () {
@@ -371,14 +359,16 @@ void main() {
         expect(bucket.options.kmsKeyName, 'my-key');
       });
 
-      test('should create Bucket with default BucketOptions when not provided',
-          () {
-        final storage = Storage(const StorageOptions());
-        final bucket = storage.bucket('test-bucket');
+      test(
+        'should create Bucket with default BucketOptions when not provided',
+        () {
+          final storage = Storage(const StorageOptions());
+          final bucket = storage.bucket('test-bucket');
 
-        expect(bucket.options, isA<BucketOptions>());
-        expect(bucket.options.userProject, isNull);
-      });
+          expect(bucket.options, isA<BucketOptions>());
+          expect(bucket.options.userProject, isNull);
+        },
+      );
 
       // TODO: Align the error message once we have a proper exception class.
       test('should throw Exception when bucket name is empty', () {
@@ -386,11 +376,13 @@ void main() {
 
         expect(
           () => storage.bucket(''),
-          throwsA(isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('Bucket name is required'),
-          )),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Bucket name is required'),
+            ),
+          ),
         );
       });
 
@@ -431,11 +423,13 @@ void main() {
 
         expect(
           () => storage.channel('', 'resource-id'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Channel ID is required'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Channel ID is required'),
+            ),
+          ),
         );
       });
 
@@ -444,11 +438,13 @@ void main() {
 
         expect(
           () => storage.channel('channel-id', ''),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Resource ID is required'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Resource ID is required'),
+            ),
+          ),
         );
       });
 
@@ -487,11 +483,13 @@ void main() {
 
         expect(
           () => storage.hmacKey(''),
-          throwsA(isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('Access ID is required'),
-          )),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Access ID is required'),
+            ),
+          ),
         );
       });
 
@@ -507,11 +505,13 @@ void main() {
 
         expect(
           () => storage.hmacKey('access-id'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('project ID is required'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('project ID is required'),
+            ),
+          ),
         );
       });
     });
@@ -532,8 +532,10 @@ void main() {
         );
         // crc32cGenerator stores the function reference
         expect(storage.crc32cGenerator, same(customGenerator));
-        expect(storage.crc32cGenerator,
-            isNot(same(defaultCrc32cValidatorGenerator)));
+        expect(
+          storage.crc32cGenerator,
+          isNot(same(defaultCrc32cValidatorGenerator)),
+        );
       });
     });
 
@@ -562,31 +564,34 @@ void main() {
           ..location = 'US'
           ..id = 'test-bucket';
 
-        when(() => mockBuckets.insert(
-              any(),
-              any(),
-              predefinedAcl: any(named: 'predefinedAcl'),
-              predefinedDefaultObjectAcl:
-                  any(named: 'predefinedDefaultObjectAcl'),
-              projection: any(named: 'projection'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => createdBucket);
+        when(
+          () => mockBuckets.insert(
+            any(),
+            any(),
+            predefinedAcl: any(named: 'predefinedAcl'),
+            predefinedDefaultObjectAcl: any(
+              named: 'predefinedDefaultObjectAcl',
+            ),
+            projection: any(named: 'projection'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => createdBucket);
 
-        final result = await storage.createBucket(
-          bucketMetadata,
-        );
+        final result = await storage.createBucket(bucketMetadata);
 
         expect(result, isA<Bucket>());
         expect(result.id, 'test-bucket');
         expect(result.metadata.name, 'test-bucket');
-        verify(() => mockBuckets.insert(
-              bucketMetadata,
-              'test-project',
-              predefinedAcl: null,
-              predefinedDefaultObjectAcl: null,
-              projection: null,
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockBuckets.insert(
+            bucketMetadata,
+            'test-project',
+            predefinedAcl: null,
+            predefinedDefaultObjectAcl: null,
+            projection: null,
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('should throw ArgumentError when bucket name is null', () {
@@ -594,11 +599,13 @@ void main() {
 
         expect(
           () => storage.createBucket(bucketMetadata),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Bucket name is required'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Bucket name is required'),
+            ),
+          ),
         );
       });
 
@@ -606,23 +613,28 @@ void main() {
         final bucketMetadata = storage_v1.Bucket()..name = 'test-bucket';
         final error = Exception('API error');
 
-        when(() => mockBuckets.insert(
-              any(),
-              any(),
-              predefinedAcl: any(named: 'predefinedAcl'),
-              predefinedDefaultObjectAcl:
-                  any(named: 'predefinedDefaultObjectAcl'),
-              projection: any(named: 'projection'),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(error);
+        when(
+          () => mockBuckets.insert(
+            any(),
+            any(),
+            predefinedAcl: any(named: 'predefinedAcl'),
+            predefinedDefaultObjectAcl: any(
+              named: 'predefinedDefaultObjectAcl',
+            ),
+            projection: any(named: 'projection'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(error);
 
         expect(
           () => storage.createBucket(bucketMetadata),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to create bucket'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to create bucket'),
+            ),
+          ),
         );
       });
     });
@@ -656,11 +668,13 @@ void main() {
           ..metadata = metadata
           ..secret = 'secret-key';
 
-        when(() => mockHmacKeys.create(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => response);
+        when(
+          () => mockHmacKeys.create(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => response);
 
         final result = await storage.createHmacKey(
           'test@example.com',
@@ -670,54 +684,64 @@ void main() {
         expect(result, isA<HmacKey>());
         expect(result.accessId, 'ACCESS_ID');
         expect(result.metadata.projectId, 'test-project');
-        verify(() => mockHmacKeys.create(
-              'test-project',
-              'test@example.com',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockHmacKeys.create(
+            'test-project',
+            'test@example.com',
+            userProject: null,
+          ),
+        ).called(1);
       });
 
       test('should throw ApiError when metadata is null', () async {
         final response = storage_v1.HmacKey()..metadata = null;
 
-        when(() => mockHmacKeys.create(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => response);
+        when(
+          () => mockHmacKeys.create(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => response);
 
         expect(
           () => storage.createHmacKey(
             'test@example.com',
             CreateHmacKeyOptions(projectId: 'test-project'),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to create HMAC key'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to create HMAC key'),
+            ),
+          ),
         );
       });
 
       test('should wrap errors in ApiError', () async {
         final error = Exception('API error');
 
-        when(() => mockHmacKeys.create(
-              any(),
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(error);
+        when(
+          () => mockHmacKeys.create(
+            any(),
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(error);
 
         expect(
           () => storage.createHmacKey(
             'test@example.com',
             CreateHmacKeyOptions(projectId: 'test-project'),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to create HMAC key'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to create HMAC key'),
+            ),
+          ),
         );
       });
     });
@@ -745,10 +769,12 @@ void main() {
         final serviceAccount = storage_v1.ServiceAccount()
           ..emailAddress = 'test@example.com';
 
-        when(() => mockServiceAccount.get(
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async => serviceAccount);
+        when(
+          () => mockServiceAccount.get(
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async => serviceAccount);
 
         final result = await storage.getServiceAccount(
           GetServiceAccountOptions(projectId: 'test-project'),
@@ -756,29 +782,32 @@ void main() {
 
         expect(result, isA<storage_v1.ServiceAccount>());
         expect(result.emailAddress, 'test@example.com');
-        verify(() => mockServiceAccount.get(
-              'test-project',
-              userProject: null,
-            )).called(1);
+        verify(
+          () => mockServiceAccount.get('test-project', userProject: null),
+        ).called(1);
       });
 
       test('should wrap errors in ApiError', () async {
         final error = Exception('API error');
 
-        when(() => mockServiceAccount.get(
-              any(),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(error);
+        when(
+          () => mockServiceAccount.get(
+            any(),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(error);
 
         expect(
           () => storage.getServiceAccount(
             GetServiceAccountOptions(projectId: 'test-project'),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to get service account'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to get service account'),
+            ),
+          ),
         );
       });
     });
@@ -808,30 +837,34 @@ void main() {
           ..name = 'bucket-2';
 
         // First page
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket1]
             ..nextPageToken = 'token-1';
         });
 
         // Second page
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: 'token-1',
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: 'token-1',
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket2]
             ..nextPageToken = null;
@@ -852,15 +885,17 @@ void main() {
           ..id = 'bucket-1'
           ..name = 'bucket-1';
 
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket1]
             ..nextPageToken = 'token-1';
@@ -883,15 +918,17 @@ void main() {
         final error = Exception('API error');
 
         // Test with autoPaginate=false to avoid stream error handling
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(error);
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(error);
 
         expect(
           () => storage.getBuckets(
@@ -900,11 +937,13 @@ void main() {
               autoPaginate: false,
             ),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to get buckets'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to get buckets'),
+            ),
+          ),
         );
       });
     });
@@ -933,15 +972,17 @@ void main() {
           ..id = 'bucket-2'
           ..name = 'bucket-2';
 
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket1, bucket2]
             ..nextPageToken = null;
@@ -968,30 +1009,34 @@ void main() {
           ..name = 'bucket-2';
 
         // First page
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: null,
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: null,
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket1]
             ..nextPageToken = 'token-1';
         });
 
         // Second page
-        when(() => mockBuckets.list(
-              any(),
-              maxResults: any(named: 'maxResults'),
-              pageToken: 'token-1',
-              prefix: any(named: 'prefix'),
-              projection: any(named: 'projection'),
-              softDeleted: any(named: 'softDeleted'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockBuckets.list(
+            any(),
+            maxResults: any(named: 'maxResults'),
+            pageToken: 'token-1',
+            prefix: any(named: 'prefix'),
+            projection: any(named: 'projection'),
+            softDeleted: any(named: 'softDeleted'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.Buckets()
             ..items = [bucket2]
             ..nextPageToken = null;
@@ -1038,28 +1083,32 @@ void main() {
           ..projectId = 'test-project';
 
         // First page
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key1]
             ..nextPageToken = 'token-1';
         });
 
         // Second page
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: 'token-1',
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: 'token-1',
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key2]
             ..nextPageToken = null;
@@ -1080,14 +1129,16 @@ void main() {
           ..accessId = 'key-1'
           ..projectId = 'test-project';
 
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key1]
             ..nextPageToken = 'token-1';
@@ -1110,14 +1161,16 @@ void main() {
         final error = Exception('API error');
 
         // Test with autoPaginate=false to avoid stream error handling
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              userProject: any(named: 'userProject'),
-            )).thenThrow(error);
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenThrow(error);
 
         expect(
           () => storage.getHmacKeys(
@@ -1126,11 +1179,13 @@ void main() {
               autoPaginate: false,
             ),
           ),
-          throwsA(isA<ApiError>().having(
-            (e) => e.message,
-            'message',
-            contains('Failed to get HMAC keys'),
-          )),
+          throwsA(
+            isA<ApiError>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to get HMAC keys'),
+            ),
+          ),
         );
       });
     });
@@ -1162,14 +1217,16 @@ void main() {
           ..accessId = 'key-2'
           ..projectId = 'test-project';
 
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: any(named: 'pageToken'),
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: any(named: 'pageToken'),
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key1, key2]
             ..nextPageToken = null;
@@ -1196,28 +1253,32 @@ void main() {
           ..projectId = 'test-project';
 
         // First page
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: null,
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: null,
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key1]
             ..nextPageToken = 'token-1';
         });
 
         // Second page
-        when(() => mockHmacKeys.list(
-              any(),
-              serviceAccountEmail: any(named: 'serviceAccountEmail'),
-              showDeletedKeys: any(named: 'showDeletedKeys'),
-              maxResults: any(named: 'maxResults'),
-              pageToken: 'token-1',
-              userProject: any(named: 'userProject'),
-            )).thenAnswer((_) async {
+        when(
+          () => mockHmacKeys.list(
+            any(),
+            serviceAccountEmail: any(named: 'serviceAccountEmail'),
+            showDeletedKeys: any(named: 'showDeletedKeys'),
+            maxResults: any(named: 'maxResults'),
+            pageToken: 'token-1',
+            userProject: any(named: 'userProject'),
+          ),
+        ).thenAnswer((_) async {
           return storage_v1.HmacKeysMetadata()
             ..items = [key2]
             ..nextPageToken = null;
@@ -1272,10 +1333,7 @@ void main() {
 
     group('copyWith', () {
       test('should return new instance with updated values', () {
-        const originalOptions = RetryOptions(
-          autoRetry: true,
-          maxRetries: 3,
-        );
+        const originalOptions = RetryOptions(autoRetry: true, maxRetries: 3);
 
         final copied = originalOptions.copyWith(
           autoRetry: false,
@@ -1289,10 +1347,7 @@ void main() {
       });
 
       test('should preserve original values when not specified', () {
-        const originalOptions = RetryOptions(
-          autoRetry: false,
-          maxRetries: 5,
-        );
+        const originalOptions = RetryOptions(autoRetry: false, maxRetries: 5);
 
         final copied = originalOptions.copyWith(maxRetries: 10);
 
