@@ -16,9 +16,13 @@ String? testPrefix;
 auth.AuthClient? authClient;
 
 /// Generate a short UUID for bucket names (similar to Node.js implementation)
+/// Uses timestamp + random component to ensure uniqueness
 String shortUUID() {
-  final random = DateTime.now().millisecondsSinceEpoch.toString();
-  final bytes = utf8.encode(random);
+  final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+  // Add a random component to avoid collisions if called in same millisecond
+  final random =
+      (timestamp.hashCode ^ DateTime.now().microsecondsSinceEpoch).toString();
+  final bytes = utf8.encode('$timestamp-$random');
   final hash = sha256.convert(bytes);
   return hash.toString().substring(0, 8);
 }
@@ -45,7 +49,7 @@ void main() {
     storage = Storage(
       StorageOptions(
         projectId: projectId!,
-        authClient: Future.value(authClient),
+        authClient: authClient,
       ),
     );
 

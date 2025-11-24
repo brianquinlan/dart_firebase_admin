@@ -316,6 +316,7 @@ class Storage extends Service<StorageOptions> {
 
         return (keys, nextQuery);
       } catch (e) {
+        print(e);
         throw ApiError('Failed to get HMAC keys', details: e);
       }
     }
