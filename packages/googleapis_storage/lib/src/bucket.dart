@@ -104,20 +104,14 @@ enum PredefinedDefaultObjectAcl {
   publicRead,
 }
 
-enum Projection {
-  full,
-  noAcl,
-}
+enum Projection { full, noAcl }
 
 class GetBucketOptions {
   /// Automatically create the bucket if it doesn't already exist.
   final bool autoCreate;
   final String? userProject;
 
-  const GetBucketOptions({
-    this.autoCreate = false,
-    this.userProject,
-  });
+  const GetBucketOptions({this.autoCreate = false, this.userProject});
 }
 
 class GetBucketSignedUrlOptions {
@@ -245,20 +239,20 @@ class Bucket extends ServiceObject<BucketMetadata>
   final String name;
 
   Bucket._(Storage storage, String name, [BucketOptions? options])
-      :
-        // Allow for "gs://"-style input, and strip any trailing slashes.
-        name = name
-            .replaceAll(RegExp(r'^gs://'), '')
-            .replaceAll(RegExp(r'/+$'), ''),
-        options = options ?? const BucketOptions(),
-        userProject = options?.userProject,
-        acl = Acl._bucketAcl(storage, name),
-        aclDefault = Acl._bucketDefaultObjectAcl(storage, name),
-        crc32cGenerator = options?.crc32cGenerator ?? storage.crc32cGenerator,
-        super(
-            service: storage,
-            id: name,
-            metadata: BucketMetadata()..name = name);
+    : // Allow for "gs://"-style input, and strip any trailing slashes.
+      name = name
+          .replaceAll(RegExp(r'^gs://'), '')
+          .replaceAll(RegExp(r'/+$'), ''),
+      options = options ?? const BucketOptions(),
+      userProject = options?.userProject,
+      acl = Acl._bucketAcl(storage, name),
+      aclDefault = Acl._bucketDefaultObjectAcl(storage, name),
+      crc32cGenerator = options?.crc32cGenerator ?? storage.crc32cGenerator,
+      super(
+        service: storage,
+        id: name,
+        metadata: BucketMetadata()..name = name,
+      );
 
   @override
   Future<Bucket> create(BucketMetadata bucket) async {
@@ -277,25 +271,23 @@ class Bucket extends ServiceObject<BucketMetadata>
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryBucketMutation,
     );
-    return api.execute<void>(
-      (client) async {
-        try {
-          // Use provided userProject or fall back to instance-level userProject
-          await client.buckets.delete(
-            id,
-            ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
-            ifMetagenerationNotMatch:
-                options?.ifMetagenerationNotMatch?.toString(),
-            userProject: options?.userProject ?? userProject,
-          );
-        } on ApiError catch (e) {
-          if (e.code == 404 && options?.ignoreNotFound == true) {
-            return;
-          }
-          rethrow;
+    return api.execute<void>((client) async {
+      try {
+        // Use provided userProject or fall back to instance-level userProject
+        await client.buckets.delete(
+          id,
+          ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
+          ifMetagenerationNotMatch: options?.ifMetagenerationNotMatch
+              ?.toString(),
+          userProject: options?.userProject ?? userProject,
+        );
+      } on ApiError catch (e) {
+        if (e.code == 404 && options?.ignoreNotFound == true) {
+          return;
         }
-      },
-    );
+        rethrow;
+      }
+    });
   }
 
   @override
@@ -303,13 +295,13 @@ class Bucket extends ServiceObject<BucketMetadata>
     // GET operations are idempotent, so retries are enabled by default
     // This matches TypeScript where getMetadata() makes the API request directly
     final api = ApiExecutor(storage);
-    final response = await api.execute<BucketMetadata>(
-      (client) async {
-        // Use provided userProject or fall back to instance-level userProject
-        return await client.buckets
-            .get(id, userProject: userProject ?? this.userProject);
-      },
-    );
+    final response = await api.execute<BucketMetadata>((client) async {
+      // Use provided userProject or fall back to instance-level userProject
+      return await client.buckets.get(
+        id,
+        userProject: userProject ?? this.userProject,
+      );
+    });
     setInstanceMetadata(response);
     return response;
   }
@@ -362,35 +354,35 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   @override
-  Future<BucketMetadata> setMetadata(BucketMetadata metadata,
-      {SetBucketMetadataOptions? options = const SetBucketMetadataOptions()}) {
+  Future<BucketMetadata> setMetadata(
+    BucketMetadata metadata, {
+    SetBucketMetadataOptions? options = const SetBucketMetadataOptions(),
+  }) {
     final api = ApiExecutor(
       storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryBucketMutation,
     );
 
-    return api.execute<BucketMetadata>(
-      (client) async {
-        // Use provided userProject or fall back to instance-level userProject
-        final updated = await client.buckets.patch(
-          metadata,
-          id,
-          ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
-          ifMetagenerationNotMatch:
-              options?.ifMetagenerationNotMatch?.toString(),
-          predefinedAcl: options?.predefinedAcl,
-          userProject: options?.userProject ?? userProject,
-        );
-        setInstanceMetadata(updated);
-        return updated;
-      },
-    );
+    return api.execute<BucketMetadata>((client) async {
+      // Use provided userProject or fall back to instance-level userProject
+      final updated = await client.buckets.patch(
+        metadata,
+        id,
+        ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
+        ifMetagenerationNotMatch: options?.ifMetagenerationNotMatch?.toString(),
+        predefinedAcl: options?.predefinedAcl,
+        userProject: options?.userProject ?? userProject,
+      );
+      setInstanceMetadata(updated);
+      return updated;
+    });
   }
 
-  Future<BucketMetadata> addLifecycleRule(List<LifecycleRule> rules,
-      [AddLifecycleRuleOptions options =
-          const AddLifecycleRuleOptions()]) async {
+  Future<BucketMetadata> addLifecycleRule(
+    List<LifecycleRule> rules, [
+    AddLifecycleRuleOptions options = const AddLifecycleRuleOptions(),
+  ]) async {
     // Convert AddLifecycleRuleOptions to SetBucketMetadataOptions to pass to setMetadata
     final setMetadataOptions = SetBucketMetadataOptions(
       ifMetagenerationMatch: options.ifMetagenerationMatch,
@@ -439,11 +431,14 @@ class Bucket extends ServiceObject<BucketMetadata>
             userProject: combineOptions.userProject ?? userProject,
             // Merge from instance preconditions first, then options take precedence
             ifGenerationMatch: instancePreconditionOpts?.ifGenerationMatch,
-            ifGenerationNotMatch: combineOptions.ifGenerationNotMatch ??
+            ifGenerationNotMatch:
+                combineOptions.ifGenerationNotMatch ??
                 instancePreconditionOpts?.ifGenerationNotMatch,
-            ifMetagenerationMatch: combineOptions.ifMetagenerationMatch ??
+            ifMetagenerationMatch:
+                combineOptions.ifMetagenerationMatch ??
                 instancePreconditionOpts?.ifMetagenerationMatch,
-            ifMetagenerationNotMatch: combineOptions.ifMetagenerationNotMatch ??
+            ifMetagenerationNotMatch:
+                combineOptions.ifMetagenerationNotMatch ??
                 instancePreconditionOpts?.ifMetagenerationNotMatch,
           )
         : CombineOptions(
@@ -465,71 +460,71 @@ class Bucket extends ServiceObject<BucketMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return api.execute<void>(
-      (client) async {
-        // Handle content type detection
-        // If destination metadata doesn't have contentType, try to detect it from file name
-        String? destinationContentType;
-        String? destinationContentEncoding;
+    return api.execute<void>((client) async {
+      // Handle content type detection
+      // If destination metadata doesn't have contentType, try to detect it from file name
+      String? destinationContentType;
+      String? destinationContentEncoding;
 
-        // Check if destination has metadata with contentType
-        destinationContentType = destination.metadata.contentType;
-        destinationContentEncoding = destination.metadata.contentEncoding;
+      // Check if destination has metadata with contentType
+      destinationContentType = destination.metadata.contentType;
+      destinationContentEncoding = destination.metadata.contentEncoding;
 
-        // If no contentType in metadata, try to detect from file extension
-        if (destinationContentType == null || destinationContentType.isEmpty) {
-          destinationContentType = lookupMimeType(destination.id) ?? '';
-        }
+      // If no contentType in metadata, try to detect from file extension
+      if (destinationContentType == null || destinationContentType.isEmpty) {
+        destinationContentType = lookupMimeType(destination.id) ?? '';
+      }
 
-        // Build source objects list
-        final sourceObjects = sources.map((source) {
-          final sourceObj = storage_v1.ComposeRequestSourceObjects(
-            name: source.id,
-          );
+      // Build source objects list
+      final sourceObjects = sources.map((source) {
+        final sourceObj = storage_v1.ComposeRequestSourceObjects(
+          name: source.id,
+        );
 
-          // Add generation if available in source metadata
-          if (source.metadata is storage_v1.Object) {
-            final sourceMetadata = source.metadata as storage_v1.Object;
-            if (sourceMetadata.generation != null) {
-              sourceObj.generation = sourceMetadata.generation;
-            }
+        // Add generation if available in source metadata
+        if (source.metadata is storage_v1.Object) {
+          final sourceMetadata = source.metadata as storage_v1.Object;
+          if (sourceMetadata.generation != null) {
+            sourceObj.generation = sourceMetadata.generation;
           }
-
-          return sourceObj;
-        }).toList();
-
-        // Build destination object metadata
-        final destinationObj = storage_v1.Object();
-        if (destinationContentType.isNotEmpty) {
-          destinationObj.contentType = destinationContentType;
-        }
-        if (destinationContentEncoding != null) {
-          destinationObj.contentEncoding = destinationContentEncoding;
         }
 
-        // Build compose request
-        final composeRequest = storage_v1.ComposeRequest(
-          destination: destinationObj,
-          sourceObjects: sourceObjects,
-        );
+        return sourceObj;
+      }).toList();
 
-        // Call the compose API
-        await client.objects.compose(
-          composeRequest,
-          id, // destination bucket
-          destination.id, // destination object
-          ifGenerationMatch: mergedOptions.ifGenerationMatch?.toString(),
-          ifMetagenerationMatch:
-              mergedOptions.ifMetagenerationMatch?.toString(),
-          kmsKeyName: mergedOptions.kmsKeyName,
-          userProject: mergedOptions.userProject,
-        );
-      },
-    );
+      // Build destination object metadata
+      final destinationObj = storage_v1.Object();
+      if (destinationContentType.isNotEmpty) {
+        destinationObj.contentType = destinationContentType;
+      }
+      if (destinationContentEncoding != null) {
+        destinationObj.contentEncoding = destinationContentEncoding;
+      }
+
+      // Build compose request
+      final composeRequest = storage_v1.ComposeRequest(
+        destination: destinationObj,
+        sourceObjects: sourceObjects,
+      );
+
+      // Call the compose API
+      await client.objects.compose(
+        composeRequest,
+        id, // destination bucket
+        destination.id, // destination object
+        ifGenerationMatch: mergedOptions.ifGenerationMatch?.toString(),
+        ifMetagenerationMatch: mergedOptions.ifMetagenerationMatch?.toString(),
+        kmsKeyName: mergedOptions.kmsKeyName,
+        userProject: mergedOptions.userProject,
+      );
+    });
   }
 
-  Future<Channel> createChannel(String id, CreateChannelConfig config,
-      [CreateChannelOptions? options = const CreateChannelOptions()]) {
+  Future<Channel> createChannel(
+    String id,
+    CreateChannelConfig config, [
+    CreateChannelOptions? options = const CreateChannelOptions(),
+  ]) {
     final api = ApiExecutor(storage);
 
     if (id.isEmpty) {
@@ -541,37 +536,35 @@ class Bucket extends ServiceObject<BucketMetadata>
     final userProject =
         options?.userProject ?? config.userProject ?? this.userProject;
 
-    return api.execute<Channel>(
-      (client) async {
-        final metadata = ChannelMetadata()
-          ..id = id
-          ..type = 'web_hook'
-          ..address = config.address;
+    return api.execute<Channel>((client) async {
+      final metadata = ChannelMetadata()
+        ..id = id
+        ..type = 'web_hook'
+        ..address = config.address;
 
-        final response = await client.objects.watchAll(
-          metadata,
-          this.id,
-          delimiter: config.delimiter,
-          maxResults: config.maxResults,
-          pageToken: config.pageToken,
-          prefix: config.prefix,
-          projection: config.projection,
-          userProject: userProject,
-          versions: config.versions,
+      final response = await client.objects.watchAll(
+        metadata,
+        this.id,
+        delimiter: config.delimiter,
+        maxResults: config.maxResults,
+        pageToken: config.pageToken,
+        prefix: config.prefix,
+        projection: config.projection,
+        userProject: userProject,
+        versions: config.versions,
+      );
+
+      final resourceId = response.resourceId;
+      if (resourceId == null || resourceId.isEmpty) {
+        throw ApiError(
+          'Failed to create channel: missing resourceId in response',
         );
+      }
 
-        final resourceId = response.resourceId;
-        if (resourceId == null || resourceId.isEmpty) {
-          throw ApiError(
-            'Failed to create channel: missing resourceId in response',
-          );
-        }
-
-        final channel = storage.channel(id, resourceId);
-        channel.setInstanceMetadata(response);
-        return channel;
-      },
-    );
+      final channel = storage.channel(id, resourceId);
+      channel.setInstanceMetadata(response);
+      return channel;
+    });
   }
 
   /// Create a notification configuration for this bucket.
@@ -600,41 +593,38 @@ class Bucket extends ServiceObject<BucketMetadata>
     final createOptions = options ?? const CreateNotificationOptions();
     final api = ApiExecutor.withoutRetries(storage);
 
-    return api.execute<Notification>(
-      (client) async {
-        // Format the topic
-        var formattedTopic = topic;
-        if (!formattedTopic.startsWith('projects/')) {
-          formattedTopic = 'projects/{{projectId}}/topics/$formattedTopic';
-        }
+    return api.execute<Notification>((client) async {
+      // Format the topic
+      var formattedTopic = topic;
+      if (!formattedTopic.startsWith('projects/')) {
+        formattedTopic = 'projects/{{projectId}}/topics/$formattedTopic';
+      }
 
-        // Add universe domain prefix
-        final universeDomain =
-            storage.options.universeDomain ?? 'googleapis.com';
-        formattedTopic = '//pubsub.$universeDomain/$formattedTopic';
+      // Add universe domain prefix
+      final universeDomain = storage.options.universeDomain ?? 'googleapis.com';
+      formattedTopic = '//pubsub.$universeDomain/$formattedTopic';
 
-        // Build notification metadata
-        final metadata = storage_v1.Notification()
-          ..topic = formattedTopic
-          ..payloadFormat = createOptions.payloadFormat ?? 'JSON_API_V1'
-          ..customAttributes = createOptions.customAttributes
-          ..eventTypes = createOptions.eventTypes
-          ..objectNamePrefix = createOptions.objectNamePrefix;
+      // Build notification metadata
+      final metadata = storage_v1.Notification()
+        ..topic = formattedTopic
+        ..payloadFormat = createOptions.payloadFormat ?? 'JSON_API_V1'
+        ..customAttributes = createOptions.customAttributes
+        ..eventTypes = createOptions.eventTypes
+        ..objectNamePrefix = createOptions.objectNamePrefix;
 
-        // Make the API call
-        // Use provided userProject or fall back to instance-level userProject
-        final response = await client.notifications.insert(
-          metadata,
-          id,
-          userProject: createOptions.userProject ?? this.userProject,
-        );
+      // Make the API call
+      // Use provided userProject or fall back to instance-level userProject
+      final response = await client.notifications.insert(
+        metadata,
+        id,
+        userProject: createOptions.userProject ?? this.userProject,
+      );
 
-        // Create and return the notification instance
-        final notification = this.notification(response.id!);
-        notification.setInstanceMetadata(response);
-        return notification;
-      },
-    );
+      // Create and return the notification instance
+      final notification = this.notification(response.id!);
+      notification.setInstanceMetadata(response);
+      return notification;
+    });
   }
 
   /// Create a [File] handle within this bucket.
@@ -643,8 +633,9 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Delete files in this bucket matching the given options.
-  Future<void> deleteFiles(
-      [DeleteFileOptions? options = const DeleteFileOptions()]) async {
+  Future<void> deleteFiles([
+    DeleteFileOptions? options = const DeleteFileOptions(),
+  ]) async {
     const maxParallelLimit = 10;
     const maxQueueSize = 1000;
     final exceptions = <Error>[];
@@ -702,25 +693,28 @@ class Bucket extends ServiceObject<BucketMetadata>
         if (hasError) return;
 
         // Check and wait for queue if needed (async, but we handle it via future)
-        queue.waitIfNeeded().then((_) {
-          if (hasError) return;
+        queue
+            .waitIfNeeded()
+            .then((_) {
+              if (hasError) return;
 
-          final future = limitedDelete(curFile);
-          future.catchError((e) {
-            if (options?.force != true) {
-              if (!hasError) {
-                hasError = true;
-                subscription?.cancel();
-                if (!completer.isCompleted) {
-                  completer.completeError(e);
+              final future = limitedDelete(curFile);
+              future.catchError((e) {
+                if (options?.force != true) {
+                  if (!hasError) {
+                    hasError = true;
+                    subscription?.cancel();
+                    if (!completer.isCompleted) {
+                      completer.completeError(e);
+                    }
+                  }
                 }
-              }
-            }
-          });
-          queue.add(future);
-        }).catchError((e) {
-          // Error already handled in BoundedQueue.onError
-        });
+              });
+              queue.add(future);
+            })
+            .catchError((e) {
+              // Error already handled in BoundedQueue.onError
+            });
       },
       onError: (e) {
         if (!hasError) {
@@ -820,18 +814,14 @@ class Bucket extends ServiceObject<BucketMetadata>
     } else {
       return setMetadata(
         update,
-        options: SetLabelsOptions(
-          userProject: options?.userProject,
-        ),
+        options: SetLabelsOptions(userProject: options?.userProject),
       );
     }
   }
 
   Future<void> disableRequesterPays([PreconditionOptions? options]) async {
     final metadata = BucketMetadata()
-      ..billing = storage_v1.BucketBilling(
-        requesterPays: false,
-      );
+      ..billing = storage_v1.BucketBilling(requesterPays: false);
     await setMetadata(
       metadata,
       options: SetBucketMetadataOptions(
@@ -853,8 +843,9 @@ class Bucket extends ServiceObject<BucketMetadata>
       role: 'roles/storage.objectCreator',
     );
 
-    policy.bindings =
-        policy.bindings == null ? [binding] : [...policy.bindings!, binding];
+    policy.bindings = policy.bindings == null
+        ? [binding]
+        : [...policy.bindings!, binding];
 
     await iam!.setPolicy(policy);
 
@@ -875,9 +866,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   Future<void> enableRequesterPays([SetBucketMetadataOptions? options]) async {
     final metadata = BucketMetadata()
-      ..billing = storage_v1.BucketBilling(
-        requesterPays: true,
-      );
+      ..billing = storage_v1.BucketBilling(requesterPays: true);
     await setMetadata(
       metadata,
       options: SetBucketMetadataOptions(
@@ -900,8 +889,9 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// Returns a record of `(files, nextQuery)` where:
   /// - `files`: List of File instances
   /// - `nextQuery`: Options for the next page (null if no more pages)
-  Future<(List<File> files, GetFilesOptions? nextQuery)> getFiles(
-      [GetFilesOptions? options = const GetFilesOptions()]) async {
+  Future<(List<File> files, GetFilesOptions? nextQuery)> getFiles([
+    GetFilesOptions? options = const GetFilesOptions(),
+  ]) async {
     final opts = options ?? const GetFilesOptions();
     final autoPaginate = opts.autoPaginate ?? true;
 
@@ -915,25 +905,23 @@ class Bucket extends ServiceObject<BucketMetadata>
     } else {
       // Single page request - no auto-pagination
       final api = ApiExecutor(storage);
-      final response = await api.execute(
-        (client) async {
-          return await client.objects.list(
-            id,
-            delimiter: opts.delimiter,
-            endOffset: opts.endOffset,
-            includeFoldersAsPrefixes: opts.includeFoldersAsPrefixes,
-            includeTrailingDelimiter: opts.includeTrailingDelimiter,
-            prefix: opts.prefix,
-            matchGlob: opts.matchGlob,
-            maxResults: opts.maxResults,
-            pageToken: opts.pageToken,
-            softDeleted: opts.softDeleted,
-            startOffset: opts.startOffset,
-            userProject: opts.userProject ?? userProject,
-            versions: opts.versions,
-          );
-        },
-      );
+      final response = await api.execute((client) async {
+        return await client.objects.list(
+          id,
+          delimiter: opts.delimiter,
+          endOffset: opts.endOffset,
+          includeFoldersAsPrefixes: opts.includeFoldersAsPrefixes,
+          includeTrailingDelimiter: opts.includeTrailingDelimiter,
+          prefix: opts.prefix,
+          matchGlob: opts.matchGlob,
+          maxResults: opts.maxResults,
+          pageToken: opts.pageToken,
+          softDeleted: opts.softDeleted,
+          startOffset: opts.startOffset,
+          userProject: opts.userProject ?? userProject,
+          versions: opts.versions,
+        );
+      });
 
       final itemsArray = response.items ?? [];
       final files = itemsArray.map((fileMetadata) {
@@ -963,33 +951,32 @@ class Bucket extends ServiceObject<BucketMetadata>
   ///
   /// Automatically handles pagination and yields files as they arrive.
   /// Similar to Node's `getFilesStream`.
-  Stream<File> getFilesStream(
-      [GetFilesOptions? options = const GetFilesOptions()]) {
+  Stream<File> getFilesStream([
+    GetFilesOptions? options = const GetFilesOptions(),
+  ]) {
     final opts = options ?? const GetFilesOptions();
     final api = ApiExecutor(storage);
 
     return Streaming<File, GetFilesOptions>(
       fetcher: (GetFilesOptions pageOptions) async {
-        final response = await api.execute(
-          (client) async {
-            // Use provided userProject or fall back to instance-level userProject
-            return await client.objects.list(
-              id,
-              delimiter: pageOptions.delimiter,
-              endOffset: pageOptions.endOffset,
-              includeFoldersAsPrefixes: pageOptions.includeFoldersAsPrefixes,
-              includeTrailingDelimiter: pageOptions.includeTrailingDelimiter,
-              prefix: pageOptions.prefix,
-              matchGlob: pageOptions.matchGlob,
-              maxResults: pageOptions.maxResults,
-              pageToken: pageOptions.pageToken,
-              softDeleted: pageOptions.softDeleted,
-              startOffset: pageOptions.startOffset,
-              userProject: pageOptions.userProject ?? userProject,
-              versions: pageOptions.versions,
-            );
-          },
-        );
+        final response = await api.execute((client) async {
+          // Use provided userProject or fall back to instance-level userProject
+          return await client.objects.list(
+            id,
+            delimiter: pageOptions.delimiter,
+            endOffset: pageOptions.endOffset,
+            includeFoldersAsPrefixes: pageOptions.includeFoldersAsPrefixes,
+            includeTrailingDelimiter: pageOptions.includeTrailingDelimiter,
+            prefix: pageOptions.prefix,
+            matchGlob: pageOptions.matchGlob,
+            maxResults: pageOptions.maxResults,
+            pageToken: pageOptions.pageToken,
+            softDeleted: pageOptions.softDeleted,
+            startOffset: pageOptions.startOffset,
+            userProject: pageOptions.userProject ?? userProject,
+            versions: pageOptions.versions,
+          );
+        });
 
         final itemsArray = (response.items ?? []);
         final files = itemsArray.map((fileMetadata) {
@@ -998,8 +985,8 @@ class Bucket extends ServiceObject<BucketMetadata>
           final fileOptions = FileOptions(
             generation:
                 pageOptions.versions == true && fileMetadata.generation != null
-                    ? int.tryParse(fileMetadata.generation ?? '')
-                    : null,
+                ? int.tryParse(fileMetadata.generation ?? '')
+                : null,
             kmsKeyName: fileMetadata.kmsKeyName,
             userProject: pageOptions.userProject ?? this.userProject,
           );
@@ -1025,25 +1012,23 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Get all notification configurations for this bucket.
-  Future<List<Notification>> getNotifications(
-      [GetNotificationsOptions? options =
-          const GetNotificationsOptions()]) async {
+  Future<List<Notification>> getNotifications([
+    GetNotificationsOptions? options = const GetNotificationsOptions(),
+  ]) async {
     final api = ApiExecutor(storage);
-    return api.execute<List<Notification>>(
-      (client) async {
-        final response = await client.notifications
-            .list(id, userProject: options?.userProject ?? userProject);
+    return api.execute<List<Notification>>((client) async {
+      final response = await client.notifications.list(
+        id,
+        userProject: options?.userProject ?? userProject,
+      );
 
-        return response.items?.map(
-              (metadata) {
-                final notification = this.notification(metadata.id!);
-                notification.setInstanceMetadata(metadata);
-                return notification;
-              },
-            ).toList() ??
-            [];
-      },
-    );
+      return response.items?.map((metadata) {
+            final notification = this.notification(metadata.id!);
+            notification.setInstanceMetadata(metadata);
+            return notification;
+          }).toList() ??
+          [];
+    });
   }
 
   /// Get a signed URL for this bucket (e.g. for listing objects).
@@ -1070,25 +1055,25 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   // /// Lock an existing retention policy on this bucket.
   Future<void> lock(num metageneration) {
-    final api =
-        ApiExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
-
-    return api.execute<void>(
-      (client) async {
-        // Use instance-level userProject if set
-        await client.buckets.lockRetentionPolicy(
-          id,
-          metageneration.toString(),
-          userProject: this.userProject,
-        );
-      },
+    final api = ApiExecutor(
+      storage,
+      shouldRetryMutation: shouldRetryBucketMutation,
     );
+
+    return api.execute<void>((client) async {
+      // Use instance-level userProject if set
+      await client.buckets.lockRetentionPolicy(
+        id,
+        metageneration.toString(),
+        userProject: this.userProject,
+      );
+    });
   }
 
   /// Make the bucket private (optionally including all files).
-  Future<List<File>> makePrivate(
-      [MakeBucketPrivateOptions? options =
-          const MakeBucketPrivateOptions()]) async {
+  Future<List<File>> makePrivate([
+    MakeBucketPrivateOptions? options = const MakeBucketPrivateOptions(),
+  ]) async {
     // Merge options.metadata with acl: null
     // You aren't allowed to set both predefinedAcl & acl properties on a bucket
     // so acl must explicitly be nullified.
@@ -1121,9 +1106,9 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Make the bucket public (optionally including all files).
-  Future<List<File>> makePublic(
-      [MakeBucketPublicOptions? options =
-          const MakeBucketPublicOptions()]) async {
+  Future<List<File>> makePublic([
+    MakeBucketPublicOptions? options = const MakeBucketPublicOptions(),
+  ]) async {
     await acl.add(entity: 'allUsers', role: 'READER');
     await aclDefault.add(entity: 'allUsers', role: 'READER');
 
@@ -1151,8 +1136,9 @@ class Bucket extends ServiceObject<BucketMetadata>
   // /// Remove the retention period from this bucket.
   // ///
   // /// TODO: Implement using `buckets.patch` with `retentionPolicy` cleared.
-  Future<BucketMetadata> removeRetentionPeriod(
-      [SetBucketMetadataOptions? options = const SetBucketMetadataOptions()]) {
+  Future<BucketMetadata> removeRetentionPeriod([
+    SetBucketMetadataOptions? options = const SetBucketMetadataOptions(),
+  ]) {
     // Pass options through to setMetadata, matching TypeScript behavior where
     // removeRetentionPeriod calls this.setMetadata({ retentionPolicy: null }, options)
     final update = BucketMetadata()..retentionPolicy = null;
@@ -1161,25 +1147,27 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   /// Restore a soft-deleted bucket (if applicable).
   Future<BucketMetadata> restore(RestoreOptions options) {
-    final api =
-        ApiExecutor(storage, shouldRetryMutation: shouldRetryBucketMutation);
-
-    return api.execute<BucketMetadata>(
-      (client) async {
-        // Use provided userProject or fall back to instance-level userProject
-        return await client.buckets.restore(
-          id,
-          options.generation.toString(),
-          projection: options.projection?.name,
-          userProject: options.userProject ?? this.userProject,
-        );
-      },
+    final api = ApiExecutor(
+      storage,
+      shouldRetryMutation: shouldRetryBucketMutation,
     );
+
+    return api.execute<BucketMetadata>((client) async {
+      // Use provided userProject or fall back to instance-level userProject
+      return await client.buckets.restore(
+        id,
+        options.generation.toString(),
+        projection: options.projection?.name,
+        userProject: options.userProject ?? this.userProject,
+      );
+    });
   }
 
   /// Set the retention period for this bucket.
-  Future<BucketMetadata> setRetentionPeriod(Duration duration,
-      [SetBucketMetadataOptions? options = const SetBucketMetadataOptions()]) {
+  Future<BucketMetadata> setRetentionPeriod(
+    Duration duration, [
+    SetBucketMetadataOptions? options = const SetBucketMetadataOptions(),
+  ]) {
     final update = BucketMetadata()
       ..retentionPolicy = storage_v1.BucketRetentionPolicy(
         retentionPeriod: duration.inSeconds.toString(),
@@ -1189,27 +1177,34 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   /// Set the CORS configuration for this bucket.
   Future<BucketMetadata> setCorsConfiguration(
-      List<CorsConfiguration> corsConfiguration,
-      [SetBucketMetadataOptions? options = const SetBucketMetadataOptions()]) {
+    List<CorsConfiguration> corsConfiguration, [
+    SetBucketMetadataOptions? options = const SetBucketMetadataOptions(),
+  ]) {
     final cors = BucketMetadata()..cors = corsConfiguration;
     return setMetadata(cors, options: options);
   }
 
   /// Set labels on this bucket.
-  Future<BucketMetadata> setLabels(Map<String, String> labels,
-      [SetLabelsOptions? options = const SetLabelsOptions()]) {
+  Future<BucketMetadata> setLabels(
+    Map<String, String> labels, [
+    SetLabelsOptions? options = const SetLabelsOptions(),
+  ]) {
     final update = BucketMetadata()..labels = labels;
     return setMetadata(update, options: options);
   }
 
   /// Set the default storage class for this bucket.
-  Future<BucketMetadata> setStorageClass(String storageClass,
-      [SetStorageClassOptions? options = const SetStorageClassOptions()]) {
+  Future<BucketMetadata> setStorageClass(
+    String storageClass, [
+    SetStorageClassOptions? options = const SetStorageClassOptions(),
+  ]) {
     // Convert storage class to snake_case
     final modified = storageClass
         .replaceAll('-', '_')
-        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'),
-            (Match match) => '${match[1]}_${match[2]}')
+        .replaceAllMapped(
+          RegExp(r'([a-z])([A-Z])'),
+          (Match match) => '${match[1]}_${match[2]}',
+        )
         .toUpperCase();
 
     final update = BucketMetadata()..storageClass = modified;
@@ -1232,13 +1227,16 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Convenience upload method mirroring Node's `bucket.upload`.
-  Future<File> upload(String path,
-      [UploadOptions? options = const UploadOptions()]) async {
+  Future<File> upload(
+    String path, [
+    UploadOptions? options = const UploadOptions(),
+  ]) async {
     throw UnimplementedError('Bucket.upload() is not implemented yet.');
   }
 
   Future<List<File>> _makeAllFilesPublicPrivate(
-      MakeAllFilesPublicPrivateOptions options) async {
+    MakeAllFilesPublicPrivateOptions options,
+  ) async {
     const maxParallelLimit = 10;
     final errors = <Error>[];
     final updatedFiles = <File>[];
@@ -1261,9 +1259,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
     // Collect all files from the stream
     final files = <File>[];
-    final getFilesOptions = GetFilesOptions(
-      userProject: options.userProject,
-    );
+    final getFilesOptions = GetFilesOptions(userProject: options.userProject);
 
     await for (final file in getFilesStream(getFilesOptions)) {
       files.add(file);
@@ -1342,10 +1338,7 @@ class MakeBucketPublicOptions {
   final bool? includeFiles;
   final bool? force;
 
-  const MakeBucketPublicOptions({
-    this.includeFiles,
-    this.force,
-  });
+  const MakeBucketPublicOptions({this.includeFiles, this.force});
 }
 
 class MakeBucketPrivateOptions {
@@ -1382,8 +1375,5 @@ class EnableLoggingOptions extends PreconditionOptions {
   final String prefix;
   final Bucket? bucket;
 
-  const EnableLoggingOptions({
-    required this.prefix,
-    this.bucket,
-  });
+  const EnableLoggingOptions({required this.prefix, this.bucket});
 }

@@ -39,9 +39,7 @@ class CreateChannelConfig extends WatchAllOptions {
 class CreateChannelOptions {
   final String? userProject;
 
-  const CreateChannelOptions({
-    this.userProject,
-  });
+  const CreateChannelOptions({this.userProject});
 }
 
 typedef ChannelMetadata = storage_v1.Channel;
@@ -60,14 +58,14 @@ class Channel extends ServiceObject<ChannelMetadata> {
   Storage get storage => service as Storage;
 
   Channel._(Storage storage, String id, String resourceId)
-      : super(
-          service: storage,
-          // Don't include an ID in the API requests: https://github.com/googleapis/google-cloud-node/issues/1145
-          id: '',
-          metadata: ChannelMetadata()
-            ..id = id
-            ..resourceId = resourceId,
-        );
+    : super(
+        service: storage,
+        // Don't include an ID in the API requests: https://github.com/googleapis/google-cloud-node/issues/1145
+        id: '',
+        metadata: ChannelMetadata()
+          ..id = id
+          ..resourceId = resourceId,
+      );
 
   /// Stop this channel.
   ///
@@ -85,14 +83,8 @@ class Channel extends ServiceObject<ChannelMetadata> {
   Future<void> stop() async {
     final api = ApiExecutor(storage);
 
-    await api.execute<void>(
-      (client) async {
-        try {
-          await client.channels.stop(metadata);
-        } catch (e) {
-          throw ApiError('Failed to stop channel ${metadata.id}', details: e);
-        }
-      },
-    );
+    await api.execute<void>((client) async {
+      await client.channels.stop(metadata);
+    });
   }
 }

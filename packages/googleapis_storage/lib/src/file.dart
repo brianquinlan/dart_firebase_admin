@@ -1,8 +1,9 @@
 part of '../googleapis_storage.dart';
 
 final _GS_UTIL_URL_REGEX = RegExp(r'^gs://([a-z0-9_.-]+)/(.+)$');
-final _HTTPS_PUBLIC_URL_REGEX =
-    RegExp(r'^https://storage\.googleapis\.com/([a-z0-9_.-]+)/(.+)$');
+final _HTTPS_PUBLIC_URL_REGEX = RegExp(
+  r'^https://storage\.googleapis\.com/([a-z0-9_.-]+)/(.+)$',
+);
 
 typedef FileMetadata = storage_v1.Object;
 
@@ -202,10 +203,7 @@ class MoveOptions {
   final String? userProject;
   final PreconditionOptions? preconditionOpts;
 
-  const MoveOptions({
-    this.userProject,
-    this.preconditionOpts,
-  });
+  const MoveOptions({this.userProject, this.preconditionOpts});
 }
 
 class MakeFilePrivateOptions {
@@ -293,21 +291,21 @@ class File extends ServiceObject<FileMetadata>
         DeletableMixin<FileMetadata>,
         SettableMixin<FileMetadata> {
   File._(this.bucket, this.name, [FileOptions? options])
-      : options = (options ?? const FileOptions()).copyWith(
-          // Inherit from bucket's storage options crc32cGenerator (which has a default) if not specified in file options
-          crc32cGenerator: options?.crc32cGenerator ??
-              bucket.storage.options.crc32cGenerator,
-          // Use provided userProject, or fall back to bucket's instance-level userProject
-          // This ensures setUserProject() on the bucket is reflected in newly created files
-          userProject: options?.userProject ?? bucket.userProject,
-          // Note: kmsKeyName and encryptionKey are NOT inherited - they are file-specific
-        ),
-        acl = Acl._objectAcl(bucket.storage, bucket.id, name),
-        userProject = options?.userProject ?? bucket.userProject,
-        preconditionOpts = options?.preconditionOpts,
-        crc32cGenerator = options?.crc32cGenerator ?? bucket.crc32cGenerator,
-        kmsKeyName = options?.kmsKeyName,
-        super(service: bucket.storage, id: name, metadata: FileMetadata());
+    : options = (options ?? const FileOptions()).copyWith(
+        // Inherit from bucket's storage options crc32cGenerator (which has a default) if not specified in file options
+        crc32cGenerator:
+            options?.crc32cGenerator ?? bucket.storage.options.crc32cGenerator,
+        // Use provided userProject, or fall back to bucket's instance-level userProject
+        // This ensures setUserProject() on the bucket is reflected in newly created files
+        userProject: options?.userProject ?? bucket.userProject,
+        // Note: kmsKeyName and encryptionKey are NOT inherited - they are file-specific
+      ),
+      acl = Acl._objectAcl(bucket.storage, bucket.id, name),
+      userProject = options?.userProject ?? bucket.userProject,
+      preconditionOpts = options?.preconditionOpts,
+      crc32cGenerator = options?.crc32cGenerator ?? bucket.crc32cGenerator,
+      kmsKeyName = options?.kmsKeyName,
+      super(service: bucket.storage, id: name, metadata: FileMetadata());
 
   final String name;
   final Bucket bucket;
@@ -332,8 +330,11 @@ class File extends ServiceObject<FileMetadata>
     return uri.replace(path: name);
   }
 
-  factory File.from(String publicUrlOrGsUrl, Storage storage,
-      [FileOptions? options]) {
+  factory File.from(
+    String publicUrlOrGsUrl,
+    Storage storage, [
+    FileOptions? options,
+  ]) {
     final gsMatches = _GS_UTIL_URL_REGEX.firstMatch(publicUrlOrGsUrl);
     final httpsMatches = _HTTPS_PUBLIC_URL_REGEX.firstMatch(publicUrlOrGsUrl);
 
@@ -367,8 +368,8 @@ class File extends ServiceObject<FileMetadata>
           ifGenerationMatch: options?.ifGenerationMatch?.toString(),
           ifGenerationNotMatch: options?.ifGenerationNotMatch?.toString(),
           ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
-          ifMetagenerationNotMatch:
-              options?.ifMetagenerationNotMatch?.toString(),
+          ifMetagenerationNotMatch: options?.ifMetagenerationNotMatch
+              ?.toString(),
         );
       });
     } on ApiError catch (e) {
@@ -385,19 +386,17 @@ class File extends ServiceObject<FileMetadata>
     // GET operations are idempotent, so retries are enabled by default
     // This matches TypeScript where getMetadata() makes the API request directly
     final api = ApiExecutor(bucket.storage);
-    final response = await api.execute<FileMetadata>(
-      (client) async {
-        // Use provided userProject or fall back to instance-level userProject
-        final result = await client.objects.get(
-          bucket.id,
-          id,
-          generation: options.generation?.toString(),
-          userProject: userProject ?? this.userProject ?? options.userProject,
-        );
-        // Cast to FileMetadata (which is storage_v1.Object)
-        return result as FileMetadata;
-      },
-    );
+    final response = await api.execute<FileMetadata>((client) async {
+      // Use provided userProject or fall back to instance-level userProject
+      final result = await client.objects.get(
+        bucket.id,
+        id,
+        generation: options.generation?.toString(),
+        userProject: userProject ?? this.userProject ?? options.userProject,
+      );
+      // Cast to FileMetadata (which is storage_v1.Object)
+      return result as FileMetadata;
+    });
     setInstanceMetadata(response);
     return response;
   }
@@ -413,25 +412,22 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return api.execute<FileMetadata>(
-      (client) async {
-        // Use provided userProject or fall back to instance-level userProject
-        final updated = await client.objects.patch(
-          metadata,
-          bucket.id,
-          id,
-          generation: this.options.generation?.toString(),
-          ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
-          ifMetagenerationNotMatch:
-              options?.ifMetagenerationNotMatch?.toString(),
-          ifGenerationMatch: options?.ifGenerationMatch?.toString(),
-          ifGenerationNotMatch: options?.ifGenerationNotMatch?.toString(),
-          userProject: options?.userProject ?? userProject,
-        );
-        setInstanceMetadata(updated);
-        return updated;
-      },
-    );
+    return api.execute<FileMetadata>((client) async {
+      // Use provided userProject or fall back to instance-level userProject
+      final updated = await client.objects.patch(
+        metadata,
+        bucket.id,
+        id,
+        generation: this.options.generation?.toString(),
+        ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
+        ifMetagenerationNotMatch: options?.ifMetagenerationNotMatch?.toString(),
+        ifGenerationMatch: options?.ifGenerationMatch?.toString(),
+        ifGenerationNotMatch: options?.ifGenerationNotMatch?.toString(),
+        userProject: options?.userProject ?? userProject,
+      );
+      setInstanceMetadata(updated);
+      return updated;
+    });
   }
 
   /// Copy this file to another file.
@@ -454,8 +450,9 @@ class File extends ServiceObject<FileMetadata>
       destBucket = destination.bucket;
       newFile = destBucket.file(name);
     } else if (destination is _PathDestination) {
-      final gsMatch =
-          RegExp(r'^gs://([a-z0-9_.-]+)/(.+)$').firstMatch(destination.path);
+      final gsMatch = RegExp(
+        r'^gs://([a-z0-9_.-]+)/(.+)$',
+      ).firstMatch(destination.path);
       if (gsMatch != null) {
         destBucket = storage.bucket(gsMatch.group(1)!);
         newFile = destBucket.file(gsMatch.group(2)!);
@@ -471,61 +468,61 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>(
-      (client) async {
-        // Build destination metadata from options
-        final destinationMetadata = storage_v1.Object()
-          ..cacheControl = copyOptions.cacheControl
-          ..contentEncoding = copyOptions.contentEncoding
-          ..contentType = copyOptions.contentType
-          ..contentDisposition = copyOptions.contentDisposition
-          ..metadata = copyOptions.metadata
-          ..kmsKeyName =
-              newFile.options.kmsKeyName ?? copyOptions.destinationKmsKeyName;
+    return await api.execute<File>((client) async {
+      // Build destination metadata from options
+      final destinationMetadata = storage_v1.Object()
+        ..cacheControl = copyOptions.cacheControl
+        ..contentEncoding = copyOptions.contentEncoding
+        ..contentType = copyOptions.contentType
+        ..contentDisposition = copyOptions.contentDisposition
+        ..metadata = copyOptions.metadata
+        ..kmsKeyName =
+            newFile.options.kmsKeyName ?? copyOptions.destinationKmsKeyName;
 
-        final response = await client.objects.rewrite(
-          destinationMetadata,
-          bucket.id,
-          id,
-          destBucket.name,
-          newFile.name,
-          sourceGeneration: this.options.generation?.toString(),
-          rewriteToken: copyOptions.token,
-          destinationKmsKeyName: copyOptions.destinationKmsKeyName,
-          destinationPredefinedAcl: copyOptions.predefinedAcl,
-          ifGenerationMatch:
-              copyOptions.preconditionOpts?.ifGenerationMatch?.toString(),
-          ifGenerationNotMatch:
-              copyOptions.preconditionOpts?.ifGenerationNotMatch?.toString(),
-          ifMetagenerationMatch:
-              copyOptions.preconditionOpts?.ifMetagenerationMatch?.toString(),
-          ifMetagenerationNotMatch: copyOptions
-              .preconditionOpts?.ifMetagenerationNotMatch
-              ?.toString(),
-          userProject: copyOptions.userProject ?? userProject,
+      final response = await client.objects.rewrite(
+        destinationMetadata,
+        bucket.id,
+        id,
+        destBucket.name,
+        newFile.name,
+        sourceGeneration: this.options.generation?.toString(),
+        rewriteToken: copyOptions.token,
+        destinationKmsKeyName: copyOptions.destinationKmsKeyName,
+        destinationPredefinedAcl: copyOptions.predefinedAcl,
+        ifGenerationMatch: copyOptions.preconditionOpts?.ifGenerationMatch
+            ?.toString(),
+        ifGenerationNotMatch: copyOptions.preconditionOpts?.ifGenerationNotMatch
+            ?.toString(),
+        ifMetagenerationMatch: copyOptions
+            .preconditionOpts
+            ?.ifMetagenerationMatch
+            ?.toString(),
+        ifMetagenerationNotMatch: copyOptions
+            .preconditionOpts
+            ?.ifMetagenerationNotMatch
+            ?.toString(),
+        userProject: copyOptions.userProject ?? userProject,
+      );
+
+      // If rewriteToken is present, we need to continue the copy
+      if (response.rewriteToken != null && response.rewriteToken!.isNotEmpty) {
+        return await copy(
+          FileBucketDestination.file(newFile),
+          options: CopyOptions(
+            token: response.rewriteToken,
+            destinationKmsKeyName: copyOptions.destinationKmsKeyName,
+            userProject: copyOptions.userProject ?? userProject,
+          ),
         );
+      }
 
-        // If rewriteToken is present, we need to continue the copy
-        if (response.rewriteToken != null &&
-            response.rewriteToken!.isNotEmpty) {
-          return await copy(
-            FileBucketDestination.file(newFile),
-            options: CopyOptions(
-              token: response.rewriteToken,
-              destinationKmsKeyName: copyOptions.destinationKmsKeyName,
-              userProject: copyOptions.userProject ?? userProject,
-            ),
-          );
-        }
+      // Update destination file metadata
+      if (response.resource != null) {
+        newFile.setInstanceMetadata(response.resource!);
+      }
 
-        // Update destination file metadata
-        if (response.resource != null) {
-          newFile.setInstanceMetadata(response.resource!);
-        }
-
-        return newFile;
-      },
-    );
+      return newFile;
+    });
   }
 
   Stream<List<int>> createReadStream([Map<String, dynamic>? options]) {
@@ -562,13 +559,15 @@ class File extends ServiceObject<FileMetadata>
     return metadata.retentionExpirationTime!;
   }
 
-  Future<Map<String, dynamic>> generateSignedPostPolicyV2(
-      [Map<String, dynamic>? options]) {
+  Future<Map<String, dynamic>> generateSignedPostPolicyV2([
+    Map<String, dynamic>? options,
+  ]) {
     throw UnimplementedError('generateSignedPostPolicyV2() is not implemented');
   }
 
-  Future<Map<String, dynamic>> generateSignedPostPolicyV4(
-      [Map<String, dynamic>? options]) {
+  Future<Map<String, dynamic>> generateSignedPostPolicyV4([
+    Map<String, dynamic>? options,
+  ]) {
     throw UnimplementedError('generateSignedPostPolicyV4() is not implemented');
   }
 
@@ -636,9 +635,9 @@ class File extends ServiceObject<FileMetadata>
     }
   }
 
-  Future<void> makePrivate(
-      [MakeFilePrivateOptions? options =
-          const MakeFilePrivateOptions()]) async {
+  Future<void> makePrivate([
+    MakeFilePrivateOptions? options = const MakeFilePrivateOptions(),
+  ]) async {
     final makePrivateOptions = options ?? const MakeFilePrivateOptions();
     // Merge options.metadata with acl: null
     // You aren't allowed to set both predefinedAcl & acl properties on a file
@@ -655,32 +654,35 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    await api.execute<void>(
-      (client) async {
-        final updated = await client.objects.patch(
-          metadata,
-          bucket.id,
-          id,
-          generation: this.options.generation?.toString(),
-          predefinedAcl:
-              makePrivateOptions.strict == true ? 'private' : 'projectPrivate',
-          ifMetagenerationMatch: makePrivateOptions
-              .preconditionOpts?.ifMetagenerationMatch
-              ?.toString(),
-          ifMetagenerationNotMatch: makePrivateOptions
-              .preconditionOpts?.ifMetagenerationNotMatch
-              ?.toString(),
-          ifGenerationMatch: makePrivateOptions
-              .preconditionOpts?.ifGenerationMatch
-              ?.toString(),
-          ifGenerationNotMatch: makePrivateOptions
-              .preconditionOpts?.ifGenerationNotMatch
-              ?.toString(),
-          userProject: makePrivateOptions.userProject ?? userProject,
-        );
-        setInstanceMetadata(updated);
-      },
-    );
+    await api.execute<void>((client) async {
+      final updated = await client.objects.patch(
+        metadata,
+        bucket.id,
+        id,
+        generation: this.options.generation?.toString(),
+        predefinedAcl: makePrivateOptions.strict == true
+            ? 'private'
+            : 'projectPrivate',
+        ifMetagenerationMatch: makePrivateOptions
+            .preconditionOpts
+            ?.ifMetagenerationMatch
+            ?.toString(),
+        ifMetagenerationNotMatch: makePrivateOptions
+            .preconditionOpts
+            ?.ifMetagenerationNotMatch
+            ?.toString(),
+        ifGenerationMatch: makePrivateOptions
+            .preconditionOpts
+            ?.ifGenerationMatch
+            ?.toString(),
+        ifGenerationNotMatch: makePrivateOptions
+            .preconditionOpts
+            ?.ifGenerationNotMatch
+            ?.toString(),
+        userProject: makePrivateOptions.userProject ?? userProject,
+      );
+      setInstanceMetadata(updated);
+    });
   }
 
   Future<void> makePublic() async {
@@ -714,12 +716,14 @@ class File extends ServiceObject<FileMetadata>
 
     if (destination is _PathDestination) {
       // Check for gs:// URL format (but must be same bucket)
-      final gsMatch =
-          RegExp(r'^gs://([a-z0-9_.-]+)/(.+)$').firstMatch(destination.path);
+      final gsMatch = RegExp(
+        r'^gs://([a-z0-9_.-]+)/(.+)$',
+      ).firstMatch(destination.path);
       if (gsMatch != null) {
         if (gsMatch.group(1) != bucket.id) {
           throw ArgumentError(
-              'moveFileAtomic can only move within the same bucket');
+            'moveFileAtomic can only move within the same bucket',
+          );
         }
         destName = gsMatch.group(2)!;
       } else {
@@ -728,7 +732,8 @@ class File extends ServiceObject<FileMetadata>
     } else if (destination is _FileInstanceDestination) {
       if (destination.file.bucket.id != bucket.id) {
         throw ArgumentError(
-            'moveFileAtomic can only move within the same bucket');
+          'moveFileAtomic can only move within the same bucket',
+        );
       }
       destName = destination.file.id;
       newFile = destination.file;
@@ -745,21 +750,19 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>(
-      (client) async {
-        final response = await client.objects.move(
-          bucket.id,
-          id,
-          destName,
-          ifGenerationMatch:
-              moveOptions.preconditionOpts?.ifGenerationMatch?.toString(),
-          userProject: moveOptions.userProject ?? userProject,
-        );
+    return await api.execute<File>((client) async {
+      final response = await client.objects.move(
+        bucket.id,
+        id,
+        destName,
+        ifGenerationMatch: moveOptions.preconditionOpts?.ifGenerationMatch
+            ?.toString(),
+        userProject: moveOptions.userProject ?? userProject,
+      );
 
-        destinationFile.setInstanceMetadata(response);
-        return destinationFile;
-      },
-    );
+      destinationFile.setInstanceMetadata(response);
+      return destinationFile;
+    });
   }
 
   /// Move this file to another location.
@@ -774,34 +777,30 @@ class File extends ServiceObject<FileMetadata>
   }) async {
     final moveOptions = options ?? const MoveOptions();
 
-    try {
-      final copiedFile = await copy(
-        destination,
-        options: CopyOptions(
-          userProject: moveOptions.userProject ?? userProject,
-          preconditionOpts: moveOptions.preconditionOpts,
+    final copiedFile = await copy(
+      destination,
+      options: CopyOptions(
+        userProject: moveOptions.userProject ?? userProject,
+        preconditionOpts: moveOptions.preconditionOpts,
+      ),
+    );
+
+    // Only delete if the destination is different
+    if (id != copiedFile.id || bucket.id != copiedFile.bucket.id) {
+      await delete(
+        options: PreconditionOptions(
+          ifGenerationMatch: moveOptions.preconditionOpts?.ifGenerationMatch,
+          ifGenerationNotMatch:
+              moveOptions.preconditionOpts?.ifGenerationNotMatch,
+          ifMetagenerationMatch:
+              moveOptions.preconditionOpts?.ifMetagenerationMatch,
+          ifMetagenerationNotMatch:
+              moveOptions.preconditionOpts?.ifMetagenerationNotMatch,
         ),
       );
-
-      // Only delete if the destination is different
-      if (id != copiedFile.id || bucket.id != copiedFile.bucket.id) {
-        await delete(
-          options: PreconditionOptions(
-            ifGenerationMatch: moveOptions.preconditionOpts?.ifGenerationMatch,
-            ifGenerationNotMatch:
-                moveOptions.preconditionOpts?.ifGenerationNotMatch,
-            ifMetagenerationMatch:
-                moveOptions.preconditionOpts?.ifMetagenerationMatch,
-            ifMetagenerationNotMatch:
-                moveOptions.preconditionOpts?.ifMetagenerationNotMatch,
-          ),
-        );
-      }
-
-      return copiedFile;
-    } catch (e) {
-      throw ApiError('file#copy failed with an error - ${e.toString()}');
     }
+
+    return copiedFile;
   }
 
   Future<File> rename(
@@ -819,26 +818,23 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>(
-      (client) async {
-        final response = await client.objects.restore(
-          bucket.id,
-          id,
-          options.generation.toString(),
-          restoreToken: options.restoreToken,
-          projection: options.projection?.name,
-          ifGenerationMatch: options.ifGenerationMatch?.toString(),
-          ifGenerationNotMatch: options.ifGenerationNotMatch?.toString(),
-          ifMetagenerationMatch: options.ifMetagenerationMatch?.toString(),
-          ifMetagenerationNotMatch:
-              options.ifMetagenerationNotMatch?.toString(),
-          userProject: options.userProject ?? userProject,
-        );
+    return await api.execute<File>((client) async {
+      final response = await client.objects.restore(
+        bucket.id,
+        id,
+        options.generation.toString(),
+        restoreToken: options.restoreToken,
+        projection: options.projection?.name,
+        ifGenerationMatch: options.ifGenerationMatch?.toString(),
+        ifGenerationNotMatch: options.ifGenerationNotMatch?.toString(),
+        ifMetagenerationMatch: options.ifMetagenerationMatch?.toString(),
+        ifMetagenerationNotMatch: options.ifMetagenerationNotMatch?.toString(),
+        userProject: options.userProject ?? userProject,
+      );
 
-        setInstanceMetadata(response);
-        return this;
-      },
-    );
+      setInstanceMetadata(response);
+      return this;
+    });
   }
 
   Future<File> rotateEncryptionKey([dynamic options]) {
@@ -860,8 +856,10 @@ class File extends ServiceObject<FileMetadata>
     // Convert storage class to SNAKE_CASE
     final modified = storageClass
         .replaceAll('-', '_')
-        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'),
-            (Match match) => '${match[1]}_${match[2]}')
+        .replaceAllMapped(
+          RegExp(r'([a-z])([A-Z])'),
+          (Match match) => '${match[1]}_${match[2]}',
+        )
         .toUpperCase();
 
     // Use copy to update storage class - copy to same file with new storage class

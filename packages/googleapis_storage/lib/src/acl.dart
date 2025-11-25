@@ -28,11 +28,7 @@ class AclEntry {
   final String role;
   final ProjectTeam? projectTeam;
 
-  const AclEntry({
-    required this.entity,
-    required this.role,
-    this.projectTeam,
-  });
+  const AclEntry({required this.entity, required this.role, this.projectTeam});
 }
 
 /// Scope of the ACL helper, matching how Node distinguishes bucket, default
@@ -67,15 +63,15 @@ class Acl {
   );
 
   Acl._bucketAcl(this._storage, this.bucket)
-      : object = null,
-        scope = AclScope.bucket;
+    : object = null,
+      scope = AclScope.bucket;
 
   Acl._bucketDefaultObjectAcl(this._storage, this.bucket)
-      : object = null,
-        scope = AclScope.bucketDefaultObject;
+    : object = null,
+      scope = AclScope.bucketDefaultObject;
 
   Acl._objectAcl(this._storage, this.bucket, this.object)
-      : scope = AclScope.object;
+    : scope = AclScope.object;
 
   /// Add an ACL entry for the given [entity] and [role].
   ///
@@ -91,55 +87,45 @@ class Acl {
   }) async {
     final api = ApiExecutor.withoutRetries(_storage);
 
-    try {
-      return await api.execute<AclEntry>(
-        (client) async {
-          switch (scope) {
-            case AclScope.bucket:
-              final acl = storage_v1.BucketAccessControl()
-                ..entity = entity
-                ..role = role.toUpperCase();
-              final resp = await client.bucketAccessControls.insert(
-                acl,
-                bucket,
-                userProject: userProject,
-              );
-              return _fromBucketAccessControl(resp);
-            case AclScope.bucketDefaultObject:
-              final acl = storage_v1.ObjectAccessControl()
-                ..entity = entity
-                ..role = role.toUpperCase();
-              final resp = await client.defaultObjectAccessControls.insert(
-                acl,
-                bucket,
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
-            case AclScope.object:
-              if (object == null) {
-                throw ApiError(
-                    'AclScope.object requires a non-null object name.');
-              }
-              final acl = storage_v1.ObjectAccessControl()
-                ..entity = entity
-                ..role = role.toUpperCase();
-              final resp = await client.objectAccessControls.insert(
-                acl,
-                bucket,
-                object!,
-                generation: generation?.toString(),
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
+    return await api.execute<AclEntry>((client) async {
+      switch (scope) {
+        case AclScope.bucket:
+          final acl = storage_v1.BucketAccessControl()
+            ..entity = entity
+            ..role = role.toUpperCase();
+          final resp = await client.bucketAccessControls.insert(
+            acl,
+            bucket,
+            userProject: userProject,
+          );
+          return _fromBucketAccessControl(resp);
+        case AclScope.bucketDefaultObject:
+          final acl = storage_v1.ObjectAccessControl()
+            ..entity = entity
+            ..role = role.toUpperCase();
+          final resp = await client.defaultObjectAccessControls.insert(
+            acl,
+            bucket,
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
+        case AclScope.object:
+          if (object == null) {
+            throw ApiError('AclScope.object requires a non-null object name.');
           }
-        },
-      );
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
+          final acl = storage_v1.ObjectAccessControl()
+            ..entity = entity
+            ..role = role.toUpperCase();
+          final resp = await client.objectAccessControls.insert(
+            acl,
+            bucket,
+            object!,
+            generation: generation?.toString(),
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
       }
-      throw ApiError('Failed to add ACL entry for $entity', details: e);
-    }
+    });
   }
 
   /// Delete an ACL entry for [entity].
@@ -150,40 +136,36 @@ class Acl {
   }) async {
     final api = ApiExecutor(_storage);
 
-    await api.execute<void>(
-      (client) async {
-        switch (scope) {
-          case AclScope.bucket:
-            await client.bucketAccessControls.delete(
-              bucket,
-              entity,
-              userProject: userProject,
-            );
-            break;
-          case AclScope.bucketDefaultObject:
-            await client.defaultObjectAccessControls.delete(
-              bucket,
-              entity,
-              userProject: userProject,
-            );
-            break;
-          case AclScope.object:
-            if (object == null) {
-              throw ApiError(
-                'AclScope.object requires a non-null object name.',
-              );
-            }
-            await client.objectAccessControls.delete(
-              bucket,
-              object!,
-              entity,
-              generation: generation?.toString(),
-              userProject: userProject,
-            );
-            break;
-        }
-      },
-    );
+    await api.execute<void>((client) async {
+      switch (scope) {
+        case AclScope.bucket:
+          await client.bucketAccessControls.delete(
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          break;
+        case AclScope.bucketDefaultObject:
+          await client.defaultObjectAccessControls.delete(
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          break;
+        case AclScope.object:
+          if (object == null) {
+            throw ApiError('AclScope.object requires a non-null object name.');
+          }
+          await client.objectAccessControls.delete(
+            bucket,
+            object!,
+            entity,
+            generation: generation?.toString(),
+            userProject: userProject,
+          );
+          break;
+      }
+    });
   }
 
   /// Get a single ACL entry for [entity].
@@ -194,95 +176,72 @@ class Acl {
   }) async {
     final api = ApiExecutor(_storage);
 
-    try {
-      return await api.execute<AclEntry>(
-        (client) async {
-          switch (scope) {
-            case AclScope.bucket:
-              final resp = await client.bucketAccessControls.get(
-                bucket,
-                entity,
-                userProject: userProject,
-              );
-              return _fromBucketAccessControl(resp);
-            case AclScope.bucketDefaultObject:
-              final resp = await client.defaultObjectAccessControls.get(
-                bucket,
-                entity,
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
-            case AclScope.object:
-              if (object == null) {
-                throw ApiError(
-                    'AclScope.object requires a non-null object name.');
-              }
-              final resp = await client.objectAccessControls.get(
-                bucket,
-                object!,
-                entity,
-                generation: generation?.toString(),
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
+    return await api.execute<AclEntry>((client) async {
+      switch (scope) {
+        case AclScope.bucket:
+          final resp = await client.bucketAccessControls.get(
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          return _fromBucketAccessControl(resp);
+        case AclScope.bucketDefaultObject:
+          final resp = await client.defaultObjectAccessControls.get(
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
+        case AclScope.object:
+          if (object == null) {
+            throw ApiError('AclScope.object requires a non-null object name.');
           }
-        },
-      );
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
+          final resp = await client.objectAccessControls.get(
+            bucket,
+            object!,
+            entity,
+            generation: generation?.toString(),
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
       }
-      throw ApiError('Failed to get ACL entry for $entity', details: e);
-    }
+    });
   }
 
   /// List all ACL entries for this scope.
   Future<List<AclEntry>> getAll({int? generation, String? userProject}) async {
     final api = ApiExecutor(_storage);
 
-    try {
-      return await api.execute<List<AclEntry>>(
-        (client) async {
-          switch (scope) {
-            case AclScope.bucket:
-              final resp = await client.bucketAccessControls.list(
-                bucket,
-                userProject: userProject,
-              );
-              final items =
-                  resp.items ?? const <storage_v1.BucketAccessControl>[];
-              return items.map(_fromBucketAccessControl).toList();
-            case AclScope.bucketDefaultObject:
-              final resp = await client.defaultObjectAccessControls.list(
-                bucket,
-                userProject: userProject,
-              );
-              final items =
-                  resp.items ?? const <storage_v1.ObjectAccessControl>[];
-              return items.map(_fromObjectAccessControl).toList();
-            case AclScope.object:
-              if (object == null) {
-                throw ApiError(
-                    'AclScope.object requires a non-null object name.');
-              }
-              final resp = await client.objectAccessControls.list(
-                bucket,
-                object!,
-                generation: generation?.toString(),
-                userProject: userProject,
-              );
-              final items =
-                  resp.items ?? const <storage_v1.ObjectAccessControl>[];
-              return items.map(_fromObjectAccessControl).toList();
+    return await api.execute<List<AclEntry>>((client) async {
+      switch (scope) {
+        case AclScope.bucket:
+          final resp = await client.bucketAccessControls.list(
+            bucket,
+            userProject: userProject,
+          );
+          final items = resp.items ?? const <storage_v1.BucketAccessControl>[];
+          return items.map(_fromBucketAccessControl).toList();
+        case AclScope.bucketDefaultObject:
+          final resp = await client.defaultObjectAccessControls.list(
+            bucket,
+            userProject: userProject,
+          );
+          final items = resp.items ?? const <storage_v1.ObjectAccessControl>[];
+          return items.map(_fromObjectAccessControl).toList();
+        case AclScope.object:
+          if (object == null) {
+            throw ApiError('AclScope.object requires a non-null object name.');
           }
-        },
-      );
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
+          final resp = await client.objectAccessControls.list(
+            bucket,
+            object!,
+            generation: generation?.toString(),
+            userProject: userProject,
+          );
+          final items = resp.items ?? const <storage_v1.ObjectAccessControl>[];
+          return items.map(_fromObjectAccessControl).toList();
       }
-      throw ApiError('Failed to list ACL entries', details: e);
-    }
+    });
   }
 
   /// Update an existing ACL entry for [entity] with a new [role].
@@ -294,56 +253,45 @@ class Acl {
   }) async {
     final api = ApiExecutor(_storage);
 
-    try {
-      return await api.execute<AclEntry>(
-        (client) async {
-          switch (scope) {
-            case AclScope.bucket:
-              final acl = storage_v1.BucketAccessControl()
-                ..role = role.toUpperCase();
-              final resp = await client.bucketAccessControls.update(
-                acl,
-                bucket,
-                entity,
-                userProject: userProject,
-              );
-              return _fromBucketAccessControl(resp);
-            case AclScope.bucketDefaultObject:
-              final acl = storage_v1.ObjectAccessControl()
-                ..role = role.toUpperCase();
-              final resp = await client.defaultObjectAccessControls.update(
-                acl,
-                bucket,
-                entity,
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
-            case AclScope.object:
-              if (object == null) {
-                throw ApiError(
-                  'AclScope.object requires a non-null object name.',
-                );
-              }
-              final acl = storage_v1.ObjectAccessControl()
-                ..role = role.toUpperCase();
-              final resp = await client.objectAccessControls.update(
-                acl,
-                bucket,
-                object!,
-                entity,
-                generation: generation?.toString(),
-                userProject: userProject,
-              );
-              return _fromObjectAccessControl(resp);
+    return await api.execute<AclEntry>((client) async {
+      switch (scope) {
+        case AclScope.bucket:
+          final acl = storage_v1.BucketAccessControl()
+            ..role = role.toUpperCase();
+          final resp = await client.bucketAccessControls.update(
+            acl,
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          return _fromBucketAccessControl(resp);
+        case AclScope.bucketDefaultObject:
+          final acl = storage_v1.ObjectAccessControl()
+            ..role = role.toUpperCase();
+          final resp = await client.defaultObjectAccessControls.update(
+            acl,
+            bucket,
+            entity,
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
+        case AclScope.object:
+          if (object == null) {
+            throw ApiError('AclScope.object requires a non-null object name.');
           }
-        },
-      );
-    } catch (e) {
-      if (e is ApiError) {
-        rethrow;
+          final acl = storage_v1.ObjectAccessControl()
+            ..role = role.toUpperCase();
+          final resp = await client.objectAccessControls.update(
+            acl,
+            bucket,
+            object!,
+            entity,
+            generation: generation?.toString(),
+            userProject: userProject,
+          );
+          return _fromObjectAccessControl(resp);
       }
-      throw ApiError('Failed to update ACL entry for $entity', details: e);
-    }
+    });
   }
 
   AclEntry _fromBucketAccessControl(storage_v1.BucketAccessControl acl) {
@@ -419,23 +367,21 @@ class AclRoleAccessor {
   Future<AclEntry> addAllAuthenticatedUsers({
     int? generation,
     String? userProject,
-  }) =>
-      _acl.add(
-        entity: 'allAuthenticatedUsers',
-        role: _role,
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.add(
+    entity: 'allAuthenticatedUsers',
+    role: _role,
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<void> deleteAllAuthenticatedUsers({
     int? generation,
     String? userProject,
-  }) =>
-      _acl.delete(
-        entity: 'allAuthenticatedUsers',
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.delete(
+    entity: 'allAuthenticatedUsers',
+    generation: generation,
+    userProject: userProject,
+  );
 
   // Domain, group, project, and user.
 
@@ -443,91 +389,83 @@ class AclRoleAccessor {
     String domain, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.add(
-        entity: 'domain-$domain',
-        role: _role,
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.add(
+    entity: 'domain-$domain',
+    role: _role,
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<void> deleteDomain(
     String domain, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.delete(
-        entity: 'domain-$domain',
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.delete(
+    entity: 'domain-$domain',
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<AclEntry> addGroup(
     String idOrEmail, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.add(
-        entity: 'group-$idOrEmail',
-        role: _role,
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.add(
+    entity: 'group-$idOrEmail',
+    role: _role,
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<void> deleteGroup(
     String idOrEmail, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.delete(
-        entity: 'group-$idOrEmail',
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.delete(
+    entity: 'group-$idOrEmail',
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<AclEntry> addProject(
     String projectId, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.add(
-        entity: 'project-$projectId',
-        role: _role,
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.add(
+    entity: 'project-$projectId',
+    role: _role,
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<void> deleteProject(
     String projectId, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.delete(
-        entity: 'project-$projectId',
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.delete(
+    entity: 'project-$projectId',
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<AclEntry> addUser(
     String idOrEmail, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.add(
-        entity: 'user-$idOrEmail',
-        role: _role,
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.add(
+    entity: 'user-$idOrEmail',
+    role: _role,
+    generation: generation,
+    userProject: userProject,
+  );
 
   Future<void> deleteUser(
     String idOrEmail, {
     int? generation,
     String? userProject,
-  }) =>
-      _acl.delete(
-        entity: 'user-$idOrEmail',
-        generation: generation,
-        userProject: userProject,
-      );
+  }) => _acl.delete(
+    entity: 'user-$idOrEmail',
+    generation: generation,
+    userProject: userProject,
+  );
 }
