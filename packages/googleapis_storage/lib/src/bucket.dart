@@ -490,11 +490,8 @@ class Bucket extends ServiceObject<BucketMetadata>
         );
 
         // Add generation if available in source metadata
-        if (source.metadata is storage_v1.Object) {
-          final sourceMetadata = source.metadata as storage_v1.Object;
-          if (sourceMetadata.generation != null) {
-            sourceObj.generation = sourceMetadata.generation;
-          }
+        if (source.metadata.generation != null) {
+          sourceObj.generation = source.metadata.generation;
         }
 
         return sourceObj;
@@ -536,8 +533,7 @@ class Bucket extends ServiceObject<BucketMetadata>
     final api = ApiExecutor(storage);
 
     if (id.isEmpty) {
-      // TODO: Use exception class
-      throw ArgumentError('Channel ID is required');
+      throw ArgumentError('An ID is required to create a channel.');
     }
 
     // Merge userProject: options takes precedence over config, then instance-level userProject
@@ -625,7 +621,7 @@ class Bucket extends ServiceObject<BucketMetadata>
       final response = await client.notifications.insert(
         metadata,
         id,
-        userProject: createOptions.userProject ?? this.userProject,
+        userProject: createOptions.userProject ?? userProject,
       );
 
       // Create and return the notification instance
@@ -844,7 +840,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   Future<BucketMetadata> enableLogging(EnableLoggingOptions options) async {
     final bucketId = options.bucket?.id ?? id;
 
-    final policy = await iam!.getPolicy();
+    final policy = await iam.getPolicy();
     final binding = storage_v1.PolicyBindings(
       members: ['group:cloud-storage-analytics@google.com'],
       role: 'roles/storage.objectCreator',
@@ -995,7 +991,7 @@ class Bucket extends ServiceObject<BucketMetadata>
                 ? int.tryParse(fileMetadata.generation ?? '')
                 : null,
             kmsKeyName: fileMetadata.kmsKeyName,
-            userProject: pageOptions.userProject ?? this.userProject,
+            userProject: pageOptions.userProject ?? userProject,
           );
 
           final fileInstance = file(fileMetadata.name ?? '', fileOptions);
@@ -1039,8 +1035,6 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Get a signed URL for this bucket (e.g. for listing objects).
-  ///
-  /// TODO: Implement using `UrlSigner` and bucket-level signing config.
   Future<String> getSignedUrl(GetBucketSignedUrlOptions options) {
     final method = _bucketActionToHttpMethod(options.action);
     final config = SignedUrlConfig(
@@ -1069,7 +1063,7 @@ class Bucket extends ServiceObject<BucketMetadata>
       await client.buckets.lockRetentionPolicy(
         id,
         metageneration.toString(),
-        userProject: this.userProject,
+        userProject: userProject,
       );
     });
   }
@@ -1160,7 +1154,7 @@ class Bucket extends ServiceObject<BucketMetadata>
         id,
         options.generation.toString(),
         projection: options.projection?.name,
-        userProject: options.userProject ?? this.userProject,
+        userProject: options.userProject ?? userProject,
       );
     });
   }

@@ -97,8 +97,7 @@ class Storage extends Service<StorageOptions> {
 
   Bucket bucket(String name, [BucketOptions? options]) {
     if (name.isEmpty) {
-      // TODO: Use exception class
-      throw Exception('Bucket name is required');
+      throw ArgumentError('A bucket name is needed to use Cloud Storage.');
     }
 
     return Bucket._(this, name, options);
@@ -369,8 +368,7 @@ class Storage extends Service<StorageOptions> {
 
   HmacKey hmacKey(String accessId, [HmacKeyOptions? options]) {
     if (accessId.isEmpty) {
-      // TODO: Use exception class
-      throw Exception('Access ID is required');
+      throw ArgumentError('An access ID is needed to create an HmacKey');
     }
 
     return HmacKey._(this, accessId, options: options);
