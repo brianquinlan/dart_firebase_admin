@@ -107,7 +107,7 @@ void main() {
           HmacKeyOptions(projectId: 'test-project'),
         );
 
-        expect(hmacKey.accessId, 'test-access-id');
+        expect(hmacKey.metadata.accessId, 'test-access-id');
         expect(hmacKey.metadata.projectId, 'test-project');
         expect(hmacKey.storage, storage);
         expect(hmacKey.metadata.accessId, 'test-access-id');

@@ -86,16 +86,16 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
         GettableMixin<HmacKeyMetadata, HmacKey>,
         DeletableMixin<HmacKeyMetadata> {
   /// A reference to the [Storage] associated with this [HmacKey] instance.
-  Storage get storage => service as Storage;
+  final Storage storage;
 
-  final String accessId;
+  final String _accessId;
 
-  HmacKey._(Storage storage, this.accessId, {HmacKeyOptions? options})
+  HmacKey._(this.storage, this._accessId, {HmacKeyOptions? options})
     : super(
         service: storage,
-        id: accessId,
+        id: _accessId,
         metadata: HmacKeyMetadata()
-          ..accessId = accessId
+          ..accessId = _accessId
           ..projectId = options?.projectId ?? storage.options.projectId,
       );
 
@@ -109,7 +109,7 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
     final api = ApiExecutor(storage);
 
     await api.executeWithProjectId<void>((client, projectId) async {
-      await client.projects.hmacKeys.delete(projectId, accessId);
+      await client.projects.hmacKeys.delete(projectId, _accessId);
     });
   }
 
@@ -143,7 +143,7 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
     final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
       (client, projectId) async => await client.projects.hmacKeys.get(
         projectId,
-        accessId,
+        _accessId,
         userProject: userProject,
       ),
     );
@@ -198,7 +198,7 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
 
     final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
       (client, projectId) async =>
-          await client.projects.hmacKeys.update(request, projectId, accessId),
+          await client.projects.hmacKeys.update(request, projectId, _accessId),
     );
     setInstanceMetadata(metadata);
     return metadata;
