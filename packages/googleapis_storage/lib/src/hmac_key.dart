@@ -72,7 +72,7 @@ enum HmacKeyState {
 class SetHmacKeyMetadata extends storage_v1.HmacKeyMetadata {
   /// New state: 'ACTIVE' or 'INACTIVE'.
   SetHmacKeyMetadata({HmacKeyState? state, super.etag})
-      : super(state: state?.value);
+    : super(state: state?.value);
 }
 
 typedef HmacKeyMetadata = storage_v1.HmacKeyMetadata;
@@ -91,13 +91,13 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
   final String accessId;
 
   HmacKey._(Storage storage, this.accessId, {HmacKeyOptions? options})
-      : super(
-          service: storage,
-          id: accessId,
-          metadata: HmacKeyMetadata()
-            ..accessId = accessId
-            ..projectId = options?.projectId ?? storage.options.projectId,
-        );
+    : super(
+        service: storage,
+        id: accessId,
+        metadata: HmacKeyMetadata()
+          ..accessId = accessId
+          ..projectId = options?.projectId ?? storage.options.projectId,
+      );
 
   /// Delete this HMAC key.
   ///
@@ -108,14 +108,9 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
     // for base class compatibility. userProject is not supported via options.
     final api = ApiExecutor(storage);
 
-    await api.executeWithProjectId<void>(
-      (client, projectId) async {
-        await client.projects.hmacKeys.delete(
-          projectId,
-          accessId,
-        );
-      },
-    );
+    await api.executeWithProjectId<void>((client, projectId) async {
+      await client.projects.hmacKeys.delete(projectId, accessId);
+    });
   }
 
   /// Retrieve and populate this HMAC key's metadata, and return this [HmacKey]
@@ -202,11 +197,8 @@ class HmacKey extends ServiceObject<HmacKeyMetadata>
       ..etag = updateMetadata.etag;
 
     final metadata = await api.executeWithProjectId<HmacKeyMetadata>(
-      (client, projectId) async => await client.projects.hmacKeys.update(
-        request,
-        projectId,
-        accessId,
-      ),
+      (client, projectId) async =>
+          await client.projects.hmacKeys.update(request, projectId, accessId),
     );
     setInstanceMetadata(metadata);
     return metadata;

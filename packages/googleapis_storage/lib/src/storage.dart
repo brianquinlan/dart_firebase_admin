@@ -42,19 +42,21 @@ class Storage extends Service<StorageOptions> {
   RetryOptions get retryOptions => options.retryOptions ?? const RetryOptions();
 
   Storage(StorageOptions options)
-      : crc32cGenerator =
-            options.crc32cGenerator ?? defaultCrc32cValidatorGenerator,
-        super(_buildServiceConfig(options), _buildMergedOptions(options));
+    : crc32cGenerator =
+          options.crc32cGenerator ?? defaultCrc32cValidatorGenerator,
+      super(_buildServiceConfig(options), _buildMergedOptions(options));
 
   /// Calculate the API endpoint and whether it's a custom endpoint.
   static ({String apiEndpoint, bool customEndpoint}) _calculateEndpoint(
-      StorageOptions options) {
+    StorageOptions options,
+  ) {
     final universe = options.universeDomain ?? 'googleapis.com';
     var apiEndpoint = 'https://storage.$universe';
     var customEndpoint = false;
 
     // Check Zone for test environment variables, fallback to Platform.environment
-    final env = Zone.current[envSymbol] as Map<String, String>? ??
+    final env =
+        Zone.current[envSymbol] as Map<String, String>? ??
         io.Platform.environment;
     final emulatorHost = env['STORAGE_EMULATOR_HOST'];
     if (emulatorHost != null) {
@@ -121,22 +123,19 @@ class Storage extends Service<StorageOptions> {
       throw ArgumentError('Bucket name is required');
     }
 
-    return await api.executeWithProjectId(
-      (client, projectId) async {
-        final inner = await client.buckets.insert(
-          bucket,
-          projectId,
-        );
+    return await api.executeWithProjectId((client, projectId) async {
+      final inner = await client.buckets.insert(bucket, projectId);
 
-        final instance = this.bucket(bucket.name!);
-        instance.setInstanceMetadata(inner);
-        return instance;
-      },
-    );
+      final instance = this.bucket(bucket.name!);
+      instance.setInstanceMetadata(inner);
+      return instance;
+    });
   }
 
-  Future<HmacKey> createHmacKey(String serviceAccountEmail,
-      [CreateHmacKeyOptions? options]) async {
+  Future<HmacKey> createHmacKey(
+    String serviceAccountEmail, [
+    CreateHmacKeyOptions? options,
+  ]) async {
     final api = ApiExecutor.withoutRetries(this);
 
     return await api.executeWithProjectId<HmacKey>(
@@ -168,8 +167,9 @@ class Storage extends Service<StorageOptions> {
     );
   }
 
-  Future<(List<Bucket> buckets, GetBucketsOptions? nextQuery)> getBuckets(
-      [GetBucketsOptions? options = const GetBucketsOptions()]) async {
+  Future<(List<Bucket> buckets, GetBucketsOptions? nextQuery)> getBuckets([
+    GetBucketsOptions? options = const GetBucketsOptions(),
+  ]) async {
     final opts = options ?? const GetBucketsOptions();
     final autoPaginate = opts.autoPaginate ?? true;
 
@@ -218,8 +218,9 @@ class Storage extends Service<StorageOptions> {
   ///
   /// Automatically handles pagination and yields buckets as they arrive.
   /// Similar to Node's `getBucketsStream`.
-  Stream<Bucket> getBucketsStream(
-      [GetBucketsOptions? options = const GetBucketsOptions()]) {
+  Stream<Bucket> getBucketsStream([
+    GetBucketsOptions? options = const GetBucketsOptions(),
+  ]) {
     final opts = options ?? const GetBucketsOptions();
     final api = ApiExecutor(this);
 
@@ -256,8 +257,9 @@ class Storage extends Service<StorageOptions> {
     );
   }
 
-  Future<(List<HmacKey> keys, GetHmacKeysOptions? nextQuery)> getHmacKeys(
-      [GetHmacKeysOptions? options = const GetHmacKeysOptions()]) async {
+  Future<(List<HmacKey> keys, GetHmacKeysOptions? nextQuery)> getHmacKeys([
+    GetHmacKeysOptions? options = const GetHmacKeysOptions(),
+  ]) async {
     final opts = options ?? const GetHmacKeysOptions();
     final autoPaginate = opts.autoPaginate ?? true;
 
@@ -308,8 +310,9 @@ class Storage extends Service<StorageOptions> {
   ///
   /// Automatically handles pagination and yields HMAC keys as they arrive.
   /// Similar to Node's `getHmacKeysStream`.
-  Stream<HmacKey> getHmacKeysStream(
-      [GetHmacKeysOptions? options = const GetHmacKeysOptions()]) {
+  Stream<HmacKey> getHmacKeysStream([
+    GetHmacKeysOptions? options = const GetHmacKeysOptions(),
+  ]) {
     final opts = options ?? const GetHmacKeysOptions();
     final api = ApiExecutor(this);
 
@@ -348,8 +351,9 @@ class Storage extends Service<StorageOptions> {
     );
   }
 
-  Future<storage_v1.ServiceAccount> getServiceAccount(
-      [GetServiceAccountOptions? options]) async {
+  Future<storage_v1.ServiceAccount> getServiceAccount([
+    GetServiceAccountOptions? options,
+  ]) async {
     final api = ApiExecutor(this);
 
     return await api.executeWithProjectId(

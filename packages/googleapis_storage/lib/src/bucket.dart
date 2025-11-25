@@ -174,7 +174,7 @@ class CreateNotificationOptions {
 class BucketOptions {
   final Crc32Generator? crc32cGenerator;
   final String? kmsKeyName;
-  final Object? preconditionOpts;
+  final PreconditionOptions? preconditionOpts;
   final String? userProject;
   final int? generation;
   final bool? softDeleted;
@@ -191,7 +191,7 @@ class BucketOptions {
   BucketOptions copyWith({
     Crc32Generator? crc32cGenerator,
     String? kmsKeyName,
-    Object? preconditionOpts,
+    PreconditionOptions? preconditionOpts,
     String? userProject,
     int? generation,
     bool? softDeleted,
@@ -216,35 +216,43 @@ class Bucket extends ServiceObject<BucketMetadata>
         GettableMixin<BucketMetadata, Bucket>,
         SettableMixin<BucketMetadata>,
         DeletableMixin<BucketMetadata> {
-  final BucketOptions options;
+  final BucketOptions _options;
   final Acl acl;
   final Acl aclDefault;
   final Crc32Generator crc32cGenerator;
-  Iam? iam;
+  Iam? _iam;
   URLSigner? _signer;
+  PreconditionOptions? get instancePreconditionOpts =>
+      _options.preconditionOpts;
 
   /// A user project to apply to each request from this bucket.
   ///
   /// This can be set via constructor options or using [setUserProject()].
   /// When making requests, if a method doesn't provide a `userProject` in its
   /// options, this instance-level `userProject` will be used automatically.
-  String? userProject;
+  String? _userProject;
 
-  Storage get storage => service as Storage;
+  final Storage storage;
 
   Uri get cloudStorageURI {
     return Uri(scheme: 'gs', host: name);
   }
 
+  String? get userProject => _userProject;
+
+  URLSigner get signer => _signer ??= URLSigner._(this, null);
+
+  Iam get iam => _iam ??= Iam._(this);
+
   final String name;
 
-  Bucket._(Storage storage, String name, [BucketOptions? options])
+  Bucket._(this.storage, String name, [BucketOptions? options])
     : // Allow for "gs://"-style input, and strip any trailing slashes.
       name = name
           .replaceAll(RegExp(r'^gs://'), '')
           .replaceAll(RegExp(r'/+$'), ''),
-      options = options ?? const BucketOptions(),
-      userProject = options?.userProject,
+      _options = options ?? const BucketOptions(),
+      _userProject = options?.userProject,
       acl = Acl._bucketAcl(storage, name),
       aclDefault = Acl._bucketDefaultObjectAcl(storage, name),
       crc32cGenerator = options?.crc32cGenerator ?? storage.crc32cGenerator,
@@ -834,7 +842,6 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   Future<BucketMetadata> enableLogging(EnableLoggingOptions options) async {
-    iam ??= Iam._(this);
     final bucketId = options.bucket?.id ?? id;
 
     final policy = await iam!.getPolicy();
@@ -847,7 +854,7 @@ class Bucket extends ServiceObject<BucketMetadata>
         ? [binding]
         : [...policy.bindings!, binding];
 
-    await iam!.setPolicy(policy);
+    await iam.setPolicy(policy);
 
     final metadata = BucketMetadata()
       ..logging = storage_v1.BucketLogging(
@@ -1047,10 +1054,7 @@ class Bucket extends ServiceObject<BucketMetadata>
       signingEndpoint: options.signingEndpoint,
     );
 
-    // Lazy initialize the signer
-    _signer ??= URLSigner._(this, null);
-
-    return _signer!.getSignedUrl(config);
+    return signer.getSignedUrl(config);
   }
 
   // /// Lock an existing retention policy on this bucket.
@@ -1133,9 +1137,7 @@ class Bucket extends ServiceObject<BucketMetadata>
     return Notification._(this, id);
   }
 
-  // /// Remove the retention period from this bucket.
-  // ///
-  // /// TODO: Implement using `buckets.patch` with `retentionPolicy` cleared.
+  /// Remove the retention period from this bucket.
   Future<BucketMetadata> removeRetentionPeriod([
     SetBucketMetadataOptions? options = const SetBucketMetadataOptions(),
   ]) {
@@ -1223,7 +1225,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// bucket.setUserProject('grape-spaceship-123');
   /// ```
   void setUserProject(String userProject) {
-    this.userProject = userProject;
+    _userProject = userProject;
   }
 
   /// Convenience upload method mirroring Node's `bucket.upload`.
