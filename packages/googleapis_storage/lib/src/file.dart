@@ -315,6 +315,7 @@ class File extends ServiceObject<FileMetadata>
   final Crc32Generator crc32cGenerator;
   final String? kmsKeyName;
   URLSigner? _signer;
+  EncryptionKey? _encryptionKey;
 
   /// A user project to apply to each request from this file.
   ///
@@ -541,8 +542,9 @@ class File extends ServiceObject<FileMetadata>
     throw UnimplementedError('download() is not implemented');
   }
 
-  void setEncryptionKey() {
-    throw UnimplementedError('setEncryptionKey() is not implemented');
+  void setEncryptionKey(EncryptionKey encryptionKey) {
+    _encryptionKey = encryptionKey;
+    // TODO Interceptors?
   }
 
   /// Get a Date object representing the earliest time this file will expire.
@@ -552,10 +554,9 @@ class File extends ServiceObject<FileMetadata>
   Future<DateTime> getExpirationDate() async {
     final metadata = await getMetadata();
     if (metadata.retentionExpirationTime == null) {
-      // TODO: Should this be a custom error?
-      throw ApiError('An expiration time is not available.');
+      throw Exception('An expiration time is not available.');
     }
-    // retentionExpirationTime is already a DateTime
+
     return metadata.retentionExpirationTime!;
   }
 
@@ -787,17 +788,7 @@ class File extends ServiceObject<FileMetadata>
 
     // Only delete if the destination is different
     if (id != copiedFile.id || bucket.id != copiedFile.bucket.id) {
-      await delete(
-        options: PreconditionOptions(
-          ifGenerationMatch: moveOptions.preconditionOpts?.ifGenerationMatch,
-          ifGenerationNotMatch:
-              moveOptions.preconditionOpts?.ifGenerationNotMatch,
-          ifMetagenerationMatch:
-              moveOptions.preconditionOpts?.ifMetagenerationMatch,
-          ifMetagenerationNotMatch:
-              moveOptions.preconditionOpts?.ifMetagenerationNotMatch,
-        ),
-      );
+      await delete(options: moveOptions.preconditionOpts);
     }
 
     return copiedFile;
@@ -926,4 +917,56 @@ class _BucketDestination extends FileBucketDestination {
 class _PathDestination extends FileBucketDestination {
   final String path;
   const _PathDestination(this.path) : super._();
+}
+
+class EncryptionKey {
+  final String _keyBase64;
+  final String _keyHash;
+
+  EncryptionKey._(this._keyBase64, this._keyHash);
+
+  /// Creates an EncryptionKey from a string.
+  ///
+  /// The string is converted to base64, and then a SHA256 hash is computed
+  /// by decoding the base64 string back to bytes and hashing those bytes.
+  /// The hash is then encoded as base64.
+  factory EncryptionKey.fromString(String key) {
+    // Convert string to bytes, then to base64
+    // This mimics: Buffer.from(encryptionKey as string).toString('base64')
+    final keyBytes = utf8.encode(key);
+    final keyBase64 = base64.encode(keyBytes);
+
+    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
+    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
+    final decodedBase64 = base64.decode(keyBase64);
+    final hash = crypto.sha256.convert(decodedBase64);
+    final keyHash = base64.encode(hash.bytes);
+
+    return EncryptionKey._(keyBase64, keyHash);
+  }
+
+  /// Creates an EncryptionKey from a buffer (List<int>).
+  ///
+  /// The buffer is converted to base64, and then a SHA256 hash is computed
+  /// by decoding the base64 string back to bytes and hashing those bytes.
+  /// The hash is then encoded as base64.
+  factory EncryptionKey.fromBuffer(List<int> buffer) {
+    // Convert buffer to base64
+    // This mimics: Buffer.from(encryptionKey).toString('base64')
+    final keyBase64 = base64.encode(buffer);
+
+    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
+    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
+    final decodedBase64 = base64.decode(keyBase64);
+    final hash = crypto.sha256.convert(decodedBase64);
+    final keyHash = base64.encode(hash.bytes);
+
+    return EncryptionKey._(keyBase64, keyHash);
+  }
+
+  /// Gets the base64-encoded encryption key.
+  String get keyBase64 => _keyBase64;
+
+  /// Gets the base64-encoded SHA256 hash of the encryption key.
+  String get keyHash => _keyHash;
 }

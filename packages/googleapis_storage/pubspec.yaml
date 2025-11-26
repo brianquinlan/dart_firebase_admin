@@ -9,6 +9,8 @@ environment:
 
 dependencies:
   googleapis_auth: ^2.0.0
+  googleapis_auth_utils:
+    path: ../googleapis_auth_utils
   googleapis: ^15.0.0
   http: ^1.6.0
   meta: ^1.17.0

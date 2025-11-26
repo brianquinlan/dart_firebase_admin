@@ -2,19 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:googleapis/storage/v1.dart';
-import 'package:googleapis_auth/auth_io.dart';
+import 'package:googleapis_auth_utils/googleapis_auth_utils.dart';
 import 'package:googleapis_storage/googleapis_storage.dart';
 
 /// Matches the Node SDK IdempotencyStrategy enum semantics.
 enum IdempotencyStrategy { retryAlways, retryConditional, retryNever }
 
 typedef RetryableErrorFn = bool Function(dynamic error);
-
-extension on AuthClient {
-  Future<String?> getProjectId() async {
-    throw UnimplementedError('getProjectId is not implemented');
-  }
-}
 
 /// Decide if an error should be retried, roughly mirroring Node's
 /// Util.shouldRetryRequest (status codes + JSON error reasons).
@@ -220,18 +214,9 @@ class ApiExecutor {
       // Resolve projectId: use override if provided, otherwise use storage.options.projectId,
       // or try to get from authClient. This matches Node.js behavior:
       // `const projectId = query.projectId || this.projectId;`
-      final resolvedProjectId =
-          projectIdOverride ??
-          storage.options.projectId ??
-          await authClient.getProjectId();
-
-      if (resolvedProjectId == null) {
-        throw ArgumentError(
-          'A project ID is required to perform this operation. '
-          'Please provide a project ID in the operation options, StorageOptions, '
-          'or ensure Application Default Credentials are configured with a project ID.',
-        );
-      }
+      final resolvedProjectId = await authClient.getProjectId(
+        projectIdOverride: projectIdOverride ?? storage.options.projectId,
+      );
 
       return operation(storageClient, resolvedProjectId);
     });
