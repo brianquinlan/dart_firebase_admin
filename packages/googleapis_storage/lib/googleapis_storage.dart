@@ -38,6 +38,7 @@ part 'src/signer.dart';
 part 'src/storage.dart';
 part 'src/transfer_manager.dart';
 part 'src/xml_multipart_helper.dart';
+part 'src/resumable_upload.dart';
 
 /// Symbol for accessing environment variables in tests via Zones.
 /// This allows tests to override Platform.environment values.

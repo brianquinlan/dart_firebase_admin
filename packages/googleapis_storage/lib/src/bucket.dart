@@ -76,7 +76,7 @@ class CombineOptions extends PreconditionOptions {
 
 class SetBucketMetadataOptions extends PreconditionOptions {
   final String? userProject;
-  final String? predefinedAcl;
+  final PredefinedAcl? predefinedAcl;
   const SetBucketMetadataOptions({
     this.userProject,
     this.predefinedAcl,
@@ -88,11 +88,16 @@ class SetBucketMetadataOptions extends PreconditionOptions {
 }
 
 enum PredefinedAcl {
-  authenticatedRead,
-  private,
-  projectPrivate,
-  publicRead,
-  publicReadWrite,
+  authenticatedRead('authenticatedRead'),
+  private('private'),
+  projectPrivate('projectPrivate'),
+  publicRead('publicRead'),
+  publicReadWrite('publicReadWrite');
+
+  /// The string value expected by the Google Cloud Storage API.
+  final String value;
+
+  const PredefinedAcl(this.value);
 }
 
 enum PredefinedDefaultObjectAcl {
@@ -301,7 +306,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   @override
   Future<BucketMetadata> getMetadata({String? userProject}) async {
     // GET operations are idempotent, so retries are enabled by default
-    // This matches TypeScript where getMetadata() makes the API request directly
+    // getMetadata() makes the API request directly and sets instance metadata
     final api = ApiExecutor(storage);
     final response = await api.execute<BucketMetadata>((client) async {
       // Use provided userProject or fall back to instance-level userProject
@@ -379,7 +384,7 @@ class Bucket extends ServiceObject<BucketMetadata>
         id,
         ifMetagenerationMatch: options?.ifMetagenerationMatch?.toString(),
         ifMetagenerationNotMatch: options?.ifMetagenerationNotMatch?.toString(),
-        predefinedAcl: options?.predefinedAcl,
+        predefinedAcl: options?.predefinedAcl?.value,
         userProject: options?.userProject ?? userProject,
       );
       setInstanceMetadata(updated);
@@ -429,10 +434,9 @@ class Bucket extends ServiceObject<BucketMetadata>
     final combineOptions = options ?? const CombineOptions();
     final instancePreconditionOpts = destination.options.preconditionOpts;
 
-    // Merge instance precondition options with combine options
-    // This mirrors TypeScript: Object.assign(options, destinationFile.instancePreconditionOpts, options)
-    // If ifGenerationMatch is not set in options, merge from destination's instance preconditions
-    // Also merge userProject: options takes precedence, then instance-level userProject
+    // Merge instance precondition options with combine options.
+    // If ifGenerationMatch is not set in options, merge from destination's instance preconditions.
+    // Also merge userProject: options takes precedence, then instance-level userProject.
     final mergedOptions = combineOptions.ifGenerationMatch == null
         ? CombineOptions(
             kmsKeyName: combineOptions.kmsKeyName,
@@ -458,9 +462,8 @@ class Bucket extends ServiceObject<BucketMetadata>
             ifMetagenerationNotMatch: combineOptions.ifMetagenerationNotMatch,
           );
 
-    // Determine retry behavior based on preconditions and idempotency strategy
-    // This mirrors the TypeScript logic for disabling retries conditionally
-    // The ApiExecutor will handle retry logic based on shouldRetryObjectMutation
+    // Determine retry behavior based on preconditions and idempotency strategy.
+    // The ApiExecutor will handle retry logic based on shouldRetryObjectMutation.
     final api = ApiExecutor(
       storage,
       preconditionOptions: mergedOptions,
@@ -953,7 +956,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// Stream files in this bucket.
   ///
   /// Automatically handles pagination and yields files as they arrive.
-  /// Similar to Node's `getFilesStream`.
+  /// Returns a stream of files in this bucket.
   Stream<File> getFilesStream([
     GetFilesOptions? options = const GetFilesOptions(),
   ]) {
@@ -1080,7 +1083,7 @@ class Bucket extends ServiceObject<BucketMetadata>
     await setMetadata(
       metadata,
       options: SetBucketMetadataOptions(
-        predefinedAcl: 'projectPrivate',
+        predefinedAcl: PredefinedAcl.projectPrivate,
         userProject: options?.userProject ?? userProject,
         ifMetagenerationMatch: options?.preconditionOpts?.ifMetagenerationMatch,
         ifMetagenerationNotMatch:
@@ -1222,12 +1225,120 @@ class Bucket extends ServiceObject<BucketMetadata>
     _userProject = userProject;
   }
 
-  /// Convenience upload method mirroring Node's `bucket.upload`.
-  Future<File> upload(
-    String path, [
-    UploadOptions? options = const UploadOptions(),
-  ]) async {
-    throw UnimplementedError('Bucket.upload() is not implemented yet.');
+  /// Upload a file to the bucket. This is a convenience method that wraps
+  /// File.createWriteStream().
+  ///
+  /// Resumable uploads are enabled by default.
+  ///
+  /// Example:
+  /// ```dart
+  /// final bucket = storage.bucket('my-bucket');
+  /// final file = await bucket.upload('/local/path/image.png');
+  /// ```
+  Future<File> upload(io.File file, [UploadOptions? options]) async {
+    final opts = options ?? const UploadOptions();
+
+    if (!await file.exists()) {
+      throw ArgumentError('File does not exist: ${file.absolute.path}');
+    }
+
+    // Determine destination File object
+    late File destinationFile;
+    if (opts.destination is File) {
+      destinationFile = opts.destination as File;
+    } else if (opts.destination is String) {
+      destinationFile = this.file(
+        opts.destination as String,
+        FileOptions(
+          encryptionKey: opts.encryptionKey,
+          kmsKeyName: opts.kmsKeyName,
+          preconditionOpts: opts.preconditionOpts,
+        ),
+      );
+    } else {
+      // Use basename of file path
+      final destination = file.absolute.path
+          .split(io.Platform.pathSeparator)
+          .last;
+      destinationFile = this.file(
+        destination,
+        FileOptions(
+          encryptionKey: opts.encryptionKey,
+          kmsKeyName: opts.kmsKeyName,
+          preconditionOpts: opts.preconditionOpts,
+        ),
+      );
+    }
+
+    // Use ApiExecutor for retry logic
+    // ApiExecutor will automatically disable retries based on preconditions and idempotency strategy
+    final api = ApiExecutor(
+      storage,
+      preconditionOptions: opts.preconditionOpts,
+      shouldRetryMutation: shouldRetryObjectMutation,
+    );
+
+    await api.execute<void>((client) async {
+      await _uploadFile(file, destinationFile, opts);
+    });
+
+    return destinationFile;
+  }
+
+  Future<void> _uploadFile(
+    io.File file,
+    File destinationFile,
+    UploadOptions options,
+  ) async {
+    final fileStream = file.openRead();
+
+    // Convert UploadOptions to CreateWriteStreamOptions
+    final writeStreamOptions = CreateWriteStreamOptions(
+      contentType: options.metadata?.contentType,
+      gzip: options.gzip,
+      metadata: options.metadata,
+      offset: options.offset,
+      predefinedAcl: options.predefinedAcl,
+      private: options.private,
+      public: options.public,
+      resumable: options.resumable,
+      timeout: options.timeout,
+      uri: options.uri,
+      chunkSize: options.chunkSize,
+      highWaterMark: options.highWaterMark,
+      isPartialUpload: options.isPartialUpload,
+      userProject: options.userProject,
+      validation: options.validation,
+      preconditionOpts: options.preconditionOpts,
+      onUploadProgress: options.onUploadProgress,
+    );
+
+    final writable = destinationFile.createWriteStream(writeStreamOptions);
+
+    // Pipe the file stream to the writable stream
+    final subscription = fileStream.listen(
+      (chunk) {
+        writable.add(chunk);
+      },
+      onError: (error, stackTrace) {
+        writable.addError(error, stackTrace);
+      },
+      onDone: () {
+        // Close the writable stream when file stream is done
+        writable.close();
+      },
+      cancelOnError: false,
+    );
+
+    // Wait for the upload to complete (writable.done waits for the actual upload)
+    try {
+      await writable.done;
+    } catch (e) {
+      rethrow;
+    } finally {
+      // Cancel the subscription if it's still active
+      await subscription.cancel();
+    }
   }
 
   Future<List<File>> _makeAllFilesPublicPrivate(
@@ -1274,8 +1385,90 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 }
 
+/// Options for uploading a file from the filesystem.
 class UploadOptions {
-  const UploadOptions();
+  /// The place to save your file. If given a String, the file will be uploaded to the bucket
+  /// using the string as a filename. When given a File object, your local file will be uploaded
+  /// to the File object's bucket and under the File object's name. If omitted, the file is uploaded
+  /// to your bucket using the name of the local file.
+  final Object? destination; // String or File
+
+  /// A custom encryption key. See Customer-supplied Encryption Keys.
+  final String? encryptionKey;
+
+  /// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
+  /// If null, the contentType is used to determine if the file should be gzipped (auto-detect).
+  final bool? gzip;
+
+  /// The name of the Cloud KMS key that will be used to encrypt the object.
+  final String? kmsKeyName;
+
+  /// Metadata for the file. See Objects: insert request body for details.
+  final FileMetadata? metadata;
+
+  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
+  final int? offset;
+
+  /// Apply a predefined set of access controls to this object.
+  final PredefinedAcl? predefinedAcl;
+
+  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
+  final bool? private;
+
+  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
+  final bool? public;
+
+  /// Resumable uploads are automatically enabled and must be shut off explicitly by setting to false.
+  final bool? resumable;
+
+  /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
+  final int? timeout;
+
+  /// The URI for an already-created resumable upload. See File.createResumableUpload().
+  final String? uri;
+
+  /// The ID of the project which will be billed for the request.
+  final String? userProject;
+
+  /// Validation type for data integrity checks. By default, data integrity is validated with an MD5 checksum.
+  final ValidationType? validation;
+
+  /// Precondition options for the upload.
+  final PreconditionOptions? preconditionOpts;
+
+  /// Callback for upload progress events.
+  final void Function(UploadProgress)? onUploadProgress;
+
+  /// Chunk size for resumable uploads. Default: 256KB
+  final int? chunkSize;
+
+  /// High water mark for the stream. Controls buffer size.
+  final int? highWaterMark;
+
+  /// Whether this is a partial upload.
+  final bool? isPartialUpload;
+
+  const UploadOptions({
+    this.destination,
+    this.encryptionKey,
+    this.gzip,
+    this.kmsKeyName,
+    this.metadata,
+    this.offset,
+    this.predefinedAcl,
+    this.private,
+    this.public,
+    this.resumable,
+    this.timeout,
+    this.uri,
+    this.userProject,
+    this.validation,
+    this.preconditionOpts,
+    this.onUploadProgress,
+    this.chunkSize,
+    this.highWaterMark,
+    this.isPartialUpload,
+  });
 }
 
 // extension on storage_v1.StorageApi {
