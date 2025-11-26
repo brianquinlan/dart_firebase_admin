@@ -6,20 +6,23 @@ part of 'security_rules.dart';
 /// and path builders.
 /// Does not handle emulator routing as Security Rules has no emulator support.
 class SecurityRulesHttpClient {
-  SecurityRulesHttpClient(this.app, [ProjectIdProvider? projectIdProvider])
-      : _projectIdProvider = projectIdProvider ?? ProjectIdProvider(app);
+  SecurityRulesHttpClient(this.app);
 
   final FirebaseApp app;
-  final ProjectIdProvider _projectIdProvider;
 
   /// Executes a Security Rules v1 API operation with automatic projectId injection.
   Future<R> v1<R>(
     Future<R> Function(
       firebase_rules_v1.FirebaseRulesApi client,
       String projectId,
-    ) fn,
+    )
+    fn,
   ) async {
-    final projectId = await _projectIdProvider.discoverProjectId();
+    final client = await app.client;
+    final projectId = await client.getProjectId(
+      projectIdOverride: app.options.projectId,
+      environment: Zone.current[envSymbol] as Map<String, String>?,
+    );
     try {
       return await fn(
         firebase_rules_v1.FirebaseRulesApi(await app.client),

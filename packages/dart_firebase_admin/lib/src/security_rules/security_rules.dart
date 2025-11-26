@@ -1,7 +1,9 @@
-import 'package:googleapis/firebaserules/v1.dart' as firebase_rules_v1;
+import 'dart:async';
 
-import '../../dart_firebase_admin.dart';
-import '../utils/project_id_provider.dart';
+import 'package:googleapis/firebaserules/v1.dart' as firebase_rules_v1;
+import 'package:googleapis_auth_utils/googleapis_auth_utils.dart';
+
+import '../app.dart';
 
 part 'security_rules_exception.dart';
 part 'security_rules_http_client.dart';
@@ -19,8 +21,8 @@ class RulesFile {
 /// Required metadata associated with a ruleset.
 class RulesetMetadata {
   RulesetMetadata._from(RulesetResponse rs)
-      : name = _stripProjectIdPrefix(rs.name),
-        createTime = DateTime.parse(rs.createTime).toIso8601String();
+    : name = _stripProjectIdPrefix(rs.name),
+      createTime = DateTime.parse(rs.createTime).toIso8601String();
 
   /// Name of the [Ruleset] as a short string. This can be directly passed into APIs
   /// like [SecurityRules.getRuleset] and [SecurityRules.deleteRuleset].
@@ -33,8 +35,8 @@ class RulesetMetadata {
 /// A page of ruleset metadata.
 class RulesetMetadataList {
   RulesetMetadataList._fromResponse(ListRulesetsResponse response)
-      : rulesets = response.rulesets.map(RulesetMetadata._from).toList(),
-        nextPageToken = response.nextPageToken;
+    : rulesets = response.rulesets.map(RulesetMetadata._from).toList(),
+      nextPageToken = response.nextPageToken;
 
   /// A batch of ruleset metadata.
   final List<RulesetMetadata> rulesets;
@@ -45,9 +47,7 @@ class RulesetMetadataList {
 
 /// A set of Firebase security rules.
 class Ruleset extends RulesetMetadata {
-  Ruleset._fromResponse(super.rs)
-      : source = rs.source.files,
-        super._from();
+  Ruleset._fromResponse(super.rs) : source = rs.source.files, super._from();
 
   final List<RulesFile> source;
 }
@@ -124,8 +124,9 @@ class SecurityRules implements FirebaseService {
   /// Returns a future that fulfills with the Cloud Storage ruleset.
   Future<Ruleset> getStorageRuleset(String bucket) async {
     final bucketName = bucket;
-    final ruleset =
-        await _getRulesetForRelease('$_firebaseStorage/$bucketName');
+    final ruleset = await _getRulesetForRelease(
+      '$_firebaseStorage/$bucketName',
+    );
 
     return ruleset;
   }
@@ -165,11 +166,7 @@ class SecurityRules implements FirebaseService {
   /// [file] - Rules file to include in the new [Ruleset].
   /// Returns a future that fulfills with the newly created [Ruleset].
   Future<Ruleset> createRuleset(RulesFile file) async {
-    final ruleset = RulesetContent(
-      source: RulesetSource(
-        files: [file],
-      ),
-    );
+    final ruleset = RulesetContent(source: RulesetSource(files: [file]));
 
     final rulesetResponse = await _requestHandler.createRuleset(ruleset);
     return Ruleset._fromResponse(rulesetResponse);

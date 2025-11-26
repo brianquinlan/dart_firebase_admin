@@ -1,11 +1,9 @@
 part of '../auth.dart';
 
 class AuthHttpClient {
-  AuthHttpClient(this.app, [ProjectIdProvider? projectIdProvider])
-      : projectIdProvider = projectIdProvider ?? ProjectIdProvider(app);
+  AuthHttpClient(this.app);
 
   final FirebaseApp app;
-  final ProjectIdProvider projectIdProvider;
 
   /// Gets the Auth API host URL based on emulator configuration.
   ///
@@ -25,12 +23,12 @@ class AuthHttpClient {
 
   /// Lazy-initialized HTTP client that's cached for reuse.
   /// Uses unauthenticated client for emulator, authenticated for production.
-  late final Future<Client> _client = _createClient();
+  late final Future<googleapis_auth.AuthClient> _client = _createClient();
 
-  Future<Client> get client => _client;
+  Future<googleapis_auth.AuthClient> get client => _client;
 
   /// Creates the appropriate HTTP client based on emulator configuration.
-  Future<Client> _createClient() async {
+  Future<googleapis_auth.AuthClient> _createClient() async {
     // If app has custom httpClient (e.g., mock for testing), always use it
     if (app.options.httpClient != null) {
       return app.client;
@@ -40,7 +38,7 @@ class AuthHttpClient {
       // Emulator: Create unauthenticated client to avoid loading ADC credentials
       // which would cause emulator warnings. Wrap with EmulatorClient to add
       // "Authorization: Bearer owner" header that the emulator requires.
-      return EmulatorClient(Client());
+      return EmulatorClient(http.Client());
     }
     // Production: Use authenticated client from app
     return app.client;
@@ -98,10 +96,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2ListInboundSamlConfigsResponse>
-      listInboundSamlConfigs({
-    required int pageSize,
-    String? pageToken,
-  }) {
+  listInboundSamlConfigs({required int pageSize, String? pageToken}) {
     return v2((client, projectId) async {
       if (pageToken != null && pageToken.isEmpty) {
         throw FirebaseAuthAdminException(AuthClientErrorCode.invalidPageToken);
@@ -124,10 +119,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2ListOAuthIdpConfigsResponse>
-      listOAuthIdpConfigs({
-    required int pageSize,
-    String? pageToken,
-  }) {
+  listOAuthIdpConfigs({required int pageSize, String? pageToken}) {
     return v2((client, projectId) async {
       if (pageToken != null && pageToken.isEmpty) {
         throw FirebaseAuthAdminException(AuthClientErrorCode.invalidPageToken);
@@ -150,7 +142,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2OAuthIdpConfig>
-      createOAuthIdpConfig(
+  createOAuthIdpConfig(
     auth2.GoogleCloudIdentitytoolkitAdminV2OAuthIdpConfig request,
   ) {
     return v2((client, projectId) async {
@@ -172,7 +164,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2InboundSamlConfig>
-      createInboundSamlConfig(
+  createInboundSamlConfig(
     auth2.GoogleCloudIdentitytoolkitAdminV2InboundSamlConfig request,
   ) {
     return v2((client, projectId) async {
@@ -210,7 +202,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2InboundSamlConfig>
-      updateInboundSamlConfig(
+  updateInboundSamlConfig(
     auth2.GoogleCloudIdentitytoolkitAdminV2InboundSamlConfig request,
     String providerId, {
     required String? updateMask,
@@ -234,7 +226,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2OAuthIdpConfig>
-      updateOAuthIdpConfig(
+  updateOAuthIdpConfig(
     auth2.GoogleCloudIdentitytoolkitAdminV2OAuthIdpConfig request,
     String providerId, {
     required String? updateMask,
@@ -258,7 +250,7 @@ class AuthHttpClient {
   }
 
   Future<auth1.GoogleCloudIdentitytoolkitV1SetAccountInfoResponse>
-      setAccountInfo(
+  setAccountInfo(
     auth1.GoogleCloudIdentitytoolkitV1SetAccountInfoRequest request,
   ) {
     return v1((client, projectId) async {
@@ -276,7 +268,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2OAuthIdpConfig>
-      getOauthIdpConfig(String providerId) {
+  getOauthIdpConfig(String providerId) {
     return v2((client, projectId) async {
       final response = await client.projects.oauthIdpConfigs.get(
         buildOAuthIdpParent(projectId, providerId),
@@ -295,7 +287,7 @@ class AuthHttpClient {
   }
 
   Future<auth2.GoogleCloudIdentitytoolkitAdminV2InboundSamlConfig>
-      getInboundSamlConfig(String providerId) {
+  getInboundSamlConfig(String providerId) {
     return v2((client, projectId) async {
       final response = await client.projects.inboundSamlConfigs.get(
         buildSamlParent(projectId, providerId),
@@ -313,9 +305,7 @@ class AuthHttpClient {
     });
   }
 
-  Future<R> _run<R>(
-    Future<R> Function(Client client) fn,
-  ) {
+  Future<R> _run<R>(Future<R> Function(googleapis_auth.AuthClient client) fn) {
     return _authGuard(() async {
       // Use the cached client (created once based on emulator configuration)
       final client = await _client;
@@ -326,13 +316,15 @@ class AuthHttpClient {
   Future<R> v1<R>(
     Future<R> Function(auth1.IdentityToolkitApi client, String projectId) fn,
   ) async {
-    final projectId = await projectIdProvider.discoverProjectId();
+    // TODO(demolaf): this can move into _run instead
+    final client = await this.client;
+    final projectId = await client.getProjectId(
+      projectIdOverride: app.options.projectId,
+      environment: Zone.current[envSymbol] as Map<String, String>?,
+    );
     return _run(
       (client) => fn(
-        auth1.IdentityToolkitApi(
-          client,
-          rootUrl: _authApiHost.toString(),
-        ),
+        auth1.IdentityToolkitApi(client, rootUrl: _authApiHost.toString()),
         projectId,
       ),
     );
@@ -341,13 +333,14 @@ class AuthHttpClient {
   Future<R> v2<R>(
     Future<R> Function(auth2.IdentityToolkitApi client, String projectId) fn,
   ) async {
-    final projectId = await projectIdProvider.discoverProjectId();
+    final client = await this.client;
+    final projectId = await client.getProjectId(
+      projectIdOverride: app.options.projectId,
+      environment: Zone.current[envSymbol] as Map<String, String>?,
+    );
     return _run(
       (client) => fn(
-        auth2.IdentityToolkitApi(
-          client,
-          rootUrl: _authApiHost.toString(),
-        ),
+        auth2.IdentityToolkitApi(client, rootUrl: _authApiHost.toString()),
         projectId,
       ),
     );
@@ -356,13 +349,14 @@ class AuthHttpClient {
   Future<R> v3<R>(
     Future<R> Function(auth3.IdentityToolkitApi client, String projectId) fn,
   ) async {
-    final projectId = await projectIdProvider.discoverProjectId();
+    final client = await this.client;
+    final projectId = await client.getProjectId(
+      projectIdOverride: app.options.projectId,
+      environment: Zone.current[envSymbol] as Map<String, String>?,
+    );
     return _run(
       (client) => fn(
-        auth3.IdentityToolkitApi(
-          client,
-          rootUrl: _authApiHost.toString(),
-        ),
+        auth3.IdentityToolkitApi(client, rootUrl: _authApiHost.toString()),
         projectId,
       ),
     );

@@ -6,7 +6,6 @@ import 'package:dart_firebase_admin/security_rules.dart';
 import 'package:dart_firebase_admin/src/app.dart';
 import 'package:dart_firebase_admin/src/app_check/app_check.dart';
 import 'package:dart_firebase_admin/src/auth.dart';
-import 'package:dart_firebase_admin/src/utils/project_id_provider.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -63,14 +62,8 @@ void main() {
         const options1 = AppOptions(projectId: 'project1');
         const options2 = AppOptions(projectId: 'project2');
 
-        final app1 = FirebaseApp.initializeApp(
-          options: options1,
-          name: 'app1',
-        );
-        final app2 = FirebaseApp.initializeApp(
-          options: options2,
-          name: 'app2',
-        );
+        final app1 = FirebaseApp.initializeApp(options: options1, name: 'app1');
+        final app2 = FirebaseApp.initializeApp(options: options2, name: 'app2');
 
         expect(app1.name, 'app1');
         expect(app2.name, 'app2');
@@ -240,10 +233,7 @@ void main() {
       test('returns custom client when provided', () async {
         final mockClient = ClientMock();
         final app = FirebaseApp.initializeApp(
-          options: AppOptions(
-            projectId: mockProjectId,
-            httpClient: mockClient,
-          ),
+          options: AppOptions(projectId: mockProjectId, httpClient: mockClient),
         );
 
         final client = await app.client;
@@ -340,13 +330,14 @@ void main() {
         expect(identical(firestore2, Firestore(app)), isTrue);
       });
 
-      test(
-          'firestore returns cached instance even if different '
+      test('firestore returns cached instance even if different '
           'settings specified', () {
-        final firestore1 =
-            app.firestore(settings: Settings(databaseId: 'test-db1'));
-        final firestore2 =
-            app.firestore(settings: Settings(databaseId: 'test-db2'));
+        final firestore1 = app.firestore(
+          settings: Settings(databaseId: 'test-db1'),
+        );
+        final firestore2 = app.firestore(
+          settings: Settings(databaseId: 'test-db2'),
+        );
         expect(identical(firestore1, firestore2), isTrue);
       });
 
@@ -450,10 +441,7 @@ void main() {
       test('does not close custom HTTP client', () async {
         final mockClient = ClientMock();
         final app = FirebaseApp.initializeApp(
-          options: AppOptions(
-            projectId: mockProjectId,
-            httpClient: mockClient,
-          ),
+          options: AppOptions(projectId: mockProjectId, httpClient: mockClient),
         );
 
         // Trigger client access
@@ -485,16 +473,14 @@ void main() {
       });
 
       test(
-          'calls delete() on auth service and closes HTTP client when emulator is enabled',
-          () async {
-        const firebaseAuthEmulatorHost = '127.0.0.1:9099';
-        final testEnv = <String, String>{
-          Environment.firebaseAuthEmulatorHost: firebaseAuthEmulatorHost,
-        };
+        'calls delete() on auth service and closes HTTP client when emulator is enabled',
+        () async {
+          const firebaseAuthEmulatorHost = '127.0.0.1:9099';
+          final testEnv = <String, String>{
+            Environment.firebaseAuthEmulatorHost: firebaseAuthEmulatorHost,
+          };
 
-        await runZoned(
-          zoneValues: {envSymbol: testEnv},
-          () async {
+          await runZoned(zoneValues: {envSymbol: testEnv}, () async {
             // Create mocks
             final mockHttpClient = AuthHttpClientMock();
             final mockClient = ClientMock();
@@ -504,14 +490,15 @@ void main() {
             );
 
             // Setup the mock: httpClient returns our mock client
-            when(() => mockHttpClient.client)
-                .thenAnswer((_) async => mockClient);
-            when(() => mockHttpClient.projectIdProvider)
-                .thenReturn(ProjectIdProvider(app));
+            when(
+              () => mockHttpClient.client,
+            ).thenAnswer((_) async => mockClient);
 
             // Create a real request handler with mocked http client
-            final requestHandler =
-                AuthRequestHandler(app, httpClient: mockHttpClient);
+            final requestHandler = AuthRequestHandler(
+              app,
+              httpClient: mockHttpClient,
+            );
 
             // Initialize auth service with our request handler
             Auth(app, requestHandler: requestHandler);
@@ -528,20 +515,19 @@ void main() {
 
             // Verify client.close() was called
             verify(mockClient.close).called(1);
-          },
-        );
-      });
+          });
+        },
+      );
 
-      test('closes firestore service and HTTP client when emulator is enabled',
-          () async {
-        const firestoreEmulatorHost = 'localhost:8080';
-        final testEnv = <String, String>{
-          Environment.firestoreEmulatorHost: firestoreEmulatorHost,
-        };
+      test(
+        'closes firestore service and HTTP client when emulator is enabled',
+        () async {
+          const firestoreEmulatorHost = 'localhost:8080';
+          final testEnv = <String, String>{
+            Environment.firestoreEmulatorHost: firestoreEmulatorHost,
+          };
 
-        await runZoned(
-          zoneValues: {envSymbol: testEnv},
-          () async {
+          await runZoned(zoneValues: {envSymbol: testEnv}, () async {
             final app = FirebaseApp.initializeApp(
               options: const AppOptions(projectId: mockProjectId),
             );
@@ -569,9 +555,9 @@ void main() {
                 ),
               ),
             );
-          },
-        );
-      });
+          });
+        },
+      );
     });
   });
 }

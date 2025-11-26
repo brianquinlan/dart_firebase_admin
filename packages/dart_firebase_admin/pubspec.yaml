@@ -4,6 +4,7 @@ resolution: workspace
 version: 0.4.1
 homepage: "https://github.com/invertase/dart_firebase_admin"
 repository: "https://github.com/invertase/dart_firebase_admin"
+publish_to: none
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -16,8 +17,11 @@ dependencies:
   freezed_annotation: ^3.0.0
   googleapis: ^15.0.0
   googleapis_auth: ^2.0.0
+  googleapis_auth_utils:
+    path: ../googleapis_auth_utils
   googleapis_beta: ^9.0.0
-  googleapis_storage: 0.0.1
+  googleapis_storage:
+    path: ../googleapis_storage
   http: ^1.0.0
   intl: ^0.20.0
   jose: ^0.3.4

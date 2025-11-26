@@ -5,6 +5,7 @@ import 'package:dart_firebase_admin/auth.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../app_check/app_check_test.dart';
 import '../google_cloud_firestore/util/helpers.dart';
 
 Future<ProcessResult> run(
@@ -26,26 +27,16 @@ Future<ProcessResult> run(
   return process;
 }
 
-Future<void> npmInstall({
-  String? workDir,
-}) async =>
+Future<void> npmInstall({String? workDir}) async =>
     run('npm', ['install'], workDir: workDir);
 
 /// Run test/client/get_id_token.js
 Future<String> getIdToken() async {
-  final path = p.join(
-    Directory.current.path,
-    'test',
-    'client',
-  );
+  final path = p.join(Directory.current.path, 'test', 'client');
 
   await npmInstall(workDir: path);
 
-  final process = await run(
-    'node',
-    ['get_id_token.js'],
-    workDir: path,
-  );
+  final process = await run('node', ['get_id_token.js'], workDir: path);
 
   return (process.stdout as String).trim();
 }
@@ -73,7 +64,9 @@ void main() {
           });
           expect(decodedToken.firebase.signInProvider, 'password');
         },
-        skip: 'Requires production mode but runs with emulator auto-detection',
+        skip: hasGoogleEnv
+            ? false
+            : 'Requires production mode but runs with emulator auto-detection',
       );
     });
   });

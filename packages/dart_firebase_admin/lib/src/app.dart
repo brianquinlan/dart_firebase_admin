@@ -3,11 +3,11 @@ library app;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
 import 'package:googleapis/identitytoolkit/v3.dart' as auth3;
 import 'package:googleapis_auth/auth_io.dart' as googleapis_auth;
-import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 import 'package:meta/meta.dart';
 
@@ -26,5 +26,3 @@ part 'app/environment.dart';
 part 'app/exception.dart';
 part 'app/firebase_app.dart';
 part 'app/firebase_service.dart';
-
-final _defaultAppRegistry = AppRegistry();

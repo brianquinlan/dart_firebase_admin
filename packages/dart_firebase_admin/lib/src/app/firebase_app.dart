@@ -11,6 +11,8 @@ class FirebaseApp {
     required this.wasInitializedFromEnv,
   });
 
+  static final _defaultAppRegistry = AppRegistry.getDefault();
+
   /// Initializes a Firebase app.
   ///
   /// Creates a new app instance or returns an existing one if already
@@ -20,14 +22,8 @@ class FirebaseApp {
   /// the FIREBASE_CONFIG environment variable.
   ///
   /// [name] defaults to an internal string if not specified.
-  static FirebaseApp initializeApp({
-    AppOptions? options,
-    String? name,
-  }) {
-    return _defaultAppRegistry.initializeApp(
-      options: options,
-      name: name,
-    );
+  static FirebaseApp initializeApp({AppOptions? options, String? name}) {
+    return _defaultAppRegistry.initializeApp(options: options, name: name);
   }
 
   /// Returns the default Firebase app instance.
@@ -90,9 +86,9 @@ class FirebaseApp {
   ///
   /// Uses the client from options if provided, otherwise creates a default one.
   /// Nullable to avoid triggering lazy initialization during cleanup.
-  Future<http.Client>? _httpClient;
+  Future<googleapis_auth.AuthClient>? _httpClient;
 
-  Future<http.Client> _createDefaultClient() async {
+  Future<googleapis_auth.AuthClient> _createDefaultClient() async {
     // Always create an authenticated client for production services.
     // Services with emulators (Firestore, Auth) create their own
     // unauthenticated clients when in emulator mode to avoid ADC warnings.
@@ -122,9 +118,9 @@ class FirebaseApp {
   /// Returns the HTTP client for this app.
   /// Lazily initializes on first access.
   @internal
-  Future<http.Client> get client {
+  Future<googleapis_auth.AuthClient> get client {
     return _httpClient ??= options.httpClient != null
-        ? Future.value(options.httpClient)
+        ? Future.value(options.httpClient!)
         : _createDefaultClient();
   }
 
@@ -171,9 +167,9 @@ class FirebaseApp {
   /// Returns a cached instance if one exists, otherwise creates a new one.
   /// Optional [settings] are only applied when creating a new instance.
   Firestore firestore({Settings? settings}) => getOrInitService(
-        FirebaseServiceType.firestore.name,
-        (app) => Firestore(app, settings: settings),
-      );
+    FirebaseServiceType.firestore.name,
+    (app) => Firestore(app, settings: settings),
+  );
 
   /// Gets the Messaging service instance for this app.
   ///
@@ -185,9 +181,9 @@ class FirebaseApp {
   ///
   /// Returns a cached instance if one exists, otherwise creates a new one.
   SecurityRules get securityRules => getOrInitService(
-        FirebaseServiceType.securityRules.name,
-        SecurityRules.new,
-      );
+    FirebaseServiceType.securityRules.name,
+    SecurityRules.new,
+  );
 
   /// Closes this app and cleans up all associated resources.
   ///

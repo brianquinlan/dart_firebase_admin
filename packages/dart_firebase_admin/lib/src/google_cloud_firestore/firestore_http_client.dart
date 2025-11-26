@@ -1,11 +1,13 @@
 part of 'firestore.dart';
 
 class FirestoreHttpClient {
-  FirestoreHttpClient(this.app, [ProjectIdProvider? projectIdProvider])
-      : _projectIdProvider = projectIdProvider ?? ProjectIdProvider(app);
+  FirestoreHttpClient(this.app);
 
   final FirebaseApp app;
-  final ProjectIdProvider _projectIdProvider;
+
+  String? _cachedProjectId;
+
+  String? get cachedProjectId => _cachedProjectId;
 
   /// Gets the Firestore API host URL based on emulator configuration.
   ///
@@ -28,10 +30,10 @@ class FirestoreHttpClient {
 
   /// Lazy-initialized HTTP client that's cached for reuse.
   /// Uses unauthenticated client for emulator, authenticated for production.
-  late final Future<Client> _client = _createClient();
+  late final Future<googleapis_auth.AuthClient> _client = _createClient();
 
   /// Creates the appropriate HTTP client based on emulator configuration.
-  Future<Client> _createClient() async {
+  Future<googleapis_auth.AuthClient> _createClient() async {
     // If app has custom httpClient (e.g., mock for testing), always use it
     if (app.options.httpClient != null) {
       return app.client;
@@ -48,7 +50,7 @@ class FirestoreHttpClient {
   }
 
   Future<R> _run<R>(
-    Future<R> Function(Client client) fn,
+    Future<R> Function(googleapis_auth.AuthClient client) fn,
   ) async {
     // Use the cached client (created once based on emulator configuration)
     final client = await _client;
@@ -62,13 +64,15 @@ class FirestoreHttpClient {
   Future<R> v1<R>(
     Future<R> Function(firestore1.FirestoreApi client, String projectId) fn,
   ) async {
-    final projectId = await _projectIdProvider.discoverProjectId();
+    final client = await _client;
+    final projectId = await client.getProjectId(
+      projectIdOverride: app.options.projectId,
+      environment: Zone.current[envSymbol] as Map<String, String>?,
+    );
+    _cachedProjectId = projectId;
     return _run(
       (client) => fn(
-        firestore1.FirestoreApi(
-          client,
-          rootUrl: _firestoreApiHost.toString(),
-        ),
+        firestore1.FirestoreApi(client, rootUrl: _firestoreApiHost.toString()),
         projectId,
       ),
     );

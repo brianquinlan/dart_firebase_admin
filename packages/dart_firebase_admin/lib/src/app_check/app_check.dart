@@ -1,11 +1,13 @@
+import 'dart:async';
+
 import 'package:googleapis/firebaseappcheck/v1.dart' as appcheck1;
+import 'package:googleapis_auth_utils/googleapis_auth_utils.dart';
 import 'package:googleapis_beta/firebaseappcheck/v1beta.dart' as appcheck1_beta;
 import 'package:meta/meta.dart';
 
 import '../app.dart';
 import '../utils/crypto_signer.dart';
 import '../utils/jwt.dart';
-import '../utils/project_id_provider.dart';
 import 'app_check_api.dart';
 import 'token_generator.dart';
 import 'token_verifier.dart';
@@ -17,22 +19,18 @@ part 'app_check_request_handler.dart';
 class AppCheck implements FirebaseService {
   /// Creates or returns the cached AppCheck instance for the given app.
   factory AppCheck(FirebaseApp app) {
-    return app.getOrInitService(
-      FirebaseServiceType.appCheck.name,
-      AppCheck._,
-    );
+    return app.getOrInitService(FirebaseServiceType.appCheck.name, AppCheck._);
   }
 
-  AppCheck._(
-    this.app, {
-    @internal AppCheckRequestHandler? requestHandler,
-  }) : _requestHandler = requestHandler ?? AppCheckRequestHandler(app);
+  AppCheck._(this.app, {@internal AppCheckRequestHandler? requestHandler})
+    : _requestHandler = requestHandler ?? AppCheckRequestHandler(app);
 
   @override
   final FirebaseApp app;
   final AppCheckRequestHandler _requestHandler;
-  late final _tokenGenerator =
-      AppCheckTokenGenerator(CryptoSigner.fromApp(app));
+  late final _tokenGenerator = AppCheckTokenGenerator(
+    CryptoSigner.fromApp(app),
+  );
   late final _appCheckTokenVerifier = AppCheckTokenVerifier(app);
 
   /// Creates a new [AppCheckToken] that can be sent
@@ -64,12 +62,14 @@ class AppCheck implements FirebaseService {
     String appCheckToken, [
     VerifyAppCheckTokenOptions? options,
   ]) async {
-    final decodedToken =
-        await _appCheckTokenVerifier.verifyToken(appCheckToken);
+    final decodedToken = await _appCheckTokenVerifier.verifyToken(
+      appCheckToken,
+    );
 
     if (options?.consume ?? false) {
-      final alreadyConsumed =
-          await _requestHandler.verifyReplayProtection(appCheckToken);
+      final alreadyConsumed = await _requestHandler.verifyReplayProtection(
+        appCheckToken,
+      );
       return VerifyAppCheckTokenResponse(
         alreadyConsumed: alreadyConsumed,
         appId: decodedToken.appId,

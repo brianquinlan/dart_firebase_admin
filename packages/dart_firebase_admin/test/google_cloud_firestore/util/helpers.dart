@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:dart_firebase_admin/src/app.dart';
-import 'package:http/http.dart';
+import 'package:googleapis_auth/auth_io.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:test/test.dart';
 
 const projectId = 'dart-firebase-admin';
@@ -77,15 +78,12 @@ void ensureEmulatorConfigured({bool requireAuth = false}) {
 /// The emulator will be auto-detected from these environment variables.
 FirebaseApp createApp({
   FutureOr<void> Function()? tearDown,
-  Client? client,
+  AuthClient? client,
   String? name,
 }) {
   final app = FirebaseApp.initializeApp(
     name: name,
-    options: AppOptions(
-      projectId: projectId,
-      httpClient: client,
-    ),
+    options: AppOptions(projectId: projectId, httpClient: client),
   );
 
   addTearDown(() async {
@@ -124,9 +122,7 @@ Future<void> _recursivelyDeleteAllDocuments(Firestore firestore) async {
 ///
 /// Note: Tests should be run with FIRESTORE_EMULATOR_HOST=localhost:8080
 /// environment variable set. The emulator will be auto-detected.
-Future<Firestore> createFirestore({
-  Settings? settings,
-}) async {
+Future<Firestore> createFirestore({Settings? settings}) async {
   // CRITICAL: Ensure emulator is running to prevent hitting production
   if (!Environment.isFirestoreEmulatorEnabled()) {
     throw StateError(
@@ -139,10 +135,7 @@ Future<Firestore> createFirestore({
   // Use unique app name for each test to avoid interference
   final appName = 'firestore-test-${DateTime.now().microsecondsSinceEpoch}';
 
-  final firestore = Firestore(
-    createApp(name: appName),
-    settings: settings,
-  );
+  final firestore = Firestore(createApp(name: appName), settings: settings);
 
   addTearDown(() async {
     try {

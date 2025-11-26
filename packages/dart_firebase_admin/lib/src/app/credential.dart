@@ -110,8 +110,9 @@ final class ServiceAccountCredential extends Credential {
     }
 
     // Use parent's fromJson to create the base credentials
-    final credentials =
-        googleapis_auth.ServiceAccountCredentials.fromJson(json);
+    final credentials = googleapis_auth.ServiceAccountCredentials.fromJson(
+      json,
+    );
 
     return ServiceAccountCredential._(credentials, projectId);
   }
@@ -146,10 +147,7 @@ final class ServiceAccountCredential extends Credential {
     return ServiceAccountCredential._(credentials, projectId);
   }
 
-  ServiceAccountCredential._(
-    this._credentials,
-    this.projectId,
-  ) : super._();
+  ServiceAccountCredential._(this._credentials, this.projectId) : super._();
 
   final googleapis_auth.ServiceAccountCredentials _credentials;
 
@@ -201,10 +199,10 @@ final class ApplicationDefaultCredential extends Credential {
     String? serviceAccountId,
     googleapis_auth.ServiceAccountCredentials? serviceAccountCredentials,
     String? projectId,
-  })  : _serviceAccountId = serviceAccountId,
-        _serviceAccountCredentials = serviceAccountCredentials,
-        _projectId = projectId,
-        super._();
+  }) : _serviceAccountId = serviceAccountId,
+       _serviceAccountCredentials = serviceAccountCredentials,
+       _projectId = projectId,
+       super._();
 
   /// Factory to create from environment.
   ///
@@ -223,8 +221,9 @@ final class ApplicationDefaultCredential extends Credential {
         final text = File(maybeConfig).readAsStringSync();
         final decodedValue = jsonDecode(text);
         if (decodedValue is Map) {
-          creds =
-              googleapis_auth.ServiceAccountCredentials.fromJson(decodedValue);
+          creds = googleapis_auth.ServiceAccountCredentials.fromJson(
+            decodedValue,
+          );
           projectId = decodedValue['project_id'] as String?;
         }
       } on FormatException catch (_) {
@@ -253,82 +252,6 @@ final class ApplicationDefaultCredential extends Credential {
 
   /// The project ID if available from the service account file.
   ///
-  /// For Compute Engine deployments, this will be null and needs to be
-  /// fetched asynchronously via [getProjectId].
+  /// For Compute Engine deployments, this will be null.
   String? get projectId => _projectId;
-
-  /// Fetches the project ID from the GCE metadata service.
-  ///
-  /// This is used when running on Google Compute Engine, Cloud Run, or other
-  /// GCP environments where the project ID can be queried from the metadata
-  /// service.
-  ///
-  /// Returns null if:
-  /// - Not running on GCE/Cloud Run
-  /// - Metadata service is unavailable
-  /// - Network request fails
-  Future<String?> getProjectId() async {
-    if (_projectId != null) {
-      return _projectId;
-    }
-
-    // Try to get from metadata service
-    try {
-      final response = await get(
-        Uri.parse(
-          'http://metadata.google.internal/computeMetadata/v1/project/project-id',
-        ),
-        headers: {
-          'Metadata-Flavor': 'Google',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-    } catch (_) {
-      // Not on Compute Engine or metadata service unavailable
-    }
-
-    return null;
-  }
-
-  /// Fetches the service account email from the GCE metadata service.
-  ///
-  /// This is used when running on Google Compute Engine to discover the default
-  /// service account email associated with the compute instance.
-  ///
-  /// Returns null if:
-  /// - Not running on GCE/Cloud Run
-  /// - Metadata service is unavailable
-  /// - Network request fails
-  Future<String?> getServiceAccountEmail() async {
-    if (_serviceAccountId != null) {
-      return _serviceAccountId;
-    }
-
-    if (_serviceAccountCredentials != null) {
-      return _serviceAccountCredentials.email;
-    }
-
-    // Try to get from metadata service
-    try {
-      final response = await get(
-        Uri.parse(
-          'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email',
-        ),
-        headers: {
-          'Metadata-Flavor': 'Google',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-    } catch (_) {
-      // Not on Compute Engine or metadata service unavailable
-    }
-
-    return null;
-  }
 }

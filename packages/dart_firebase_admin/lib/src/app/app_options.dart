@@ -72,9 +72,9 @@ class AppOptions extends Equatable {
   ///
   /// Example:
   /// ```dart
-  /// import 'package:http/http.dart' as http;
+  /// import 'package:googleapis_auth/auth_io.dart' as auth;
   ///
-  /// final customClient = http.Client();
+  /// final customClient = await auth.clientViaApplicationDefaultCredentials();
   /// final app = FirebaseAdminApp.initializeApp(
   ///   AppOptions(
   ///     credential: credential,
@@ -82,7 +82,7 @@ class AppOptions extends Equatable {
   ///   ),
   /// );
   /// ```
-  final http.Client? httpClient;
+  final googleapis_auth.AuthClient? httpClient;
 
   /// The object to use as the auth variable in Realtime Database Rules.
   ///
@@ -121,12 +121,12 @@ class AppOptions extends Equatable {
 
   @override
   List<Object?> get props => [
-        // Exclude credential and httpClient from comparison
-        // (they're instances that can't be meaningfully compared)
-        projectId,
-        databaseURL,
-        storageBucket,
-        serviceAccountId,
-        databaseAuthVariableOverride,
-      ];
+    // Exclude credential and httpClient from comparison
+    // (they're instances that can't be meaningfully compared)
+    projectId,
+    databaseURL,
+    storageBucket,
+    serviceAccountId,
+    databaseAuthVariableOverride,
+  ];
 }
