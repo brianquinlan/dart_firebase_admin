@@ -213,15 +213,6 @@ class XMLMultiPartUploadHelper {
           );
         }
 
-        // Check for error in response body
-        if (body.contains('<Error>')) {
-          throw ApiError(
-            'Upload initiation failed',
-            code: response.statusCode,
-            details: body,
-          );
-        }
-
         uploadId = XmlMultipartHelper.parseUploadId(body);
       } catch (e) {
         if (e is ApiError) rethrow;
@@ -273,15 +264,6 @@ class XMLMultiPartUploadHelper {
           );
         }
 
-        // Check for error in response body
-        if (body.contains('<Error>')) {
-          throw ApiError(
-            'Part upload failed',
-            code: response.statusCode,
-            details: body,
-          );
-        }
-
         final etag = response.headers['etag'];
         if (etag != null) {
           partsMap[partNumber] = etag;
@@ -325,15 +307,6 @@ class XMLMultiPartUploadHelper {
           );
         }
 
-        // Check for error in response body
-        if (responseBody.contains('<Error>')) {
-          throw ApiError(
-            'Upload completion failed',
-            code: response.statusCode,
-            details: responseBody,
-          );
-        }
-
         return http.Response(
           responseBody,
           response.statusCode,
@@ -361,15 +334,6 @@ class XMLMultiPartUploadHelper {
         final body = await response.stream.bytesToString();
 
         if (response.statusCode >= 400) {
-          throw ApiError(
-            'Upload abort failed',
-            code: response.statusCode,
-            details: body,
-          );
-        }
-
-        // Check for error in response body
-        if (body.contains('<Error>')) {
           throw ApiError(
             'Upload abort failed',
             code: response.statusCode,
