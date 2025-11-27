@@ -1,3 +1,4 @@
+// ignore_for_file: use_super_parameters - Freezed generation breaks
 import 'dart:convert';
 import 'dart:io' as io;
 
@@ -1769,7 +1770,7 @@ abstract class UploadManyFilesOptions with _$UploadManyFilesOptions {
     String? prefix,
 
     /// Additional options to pass through to individual upload operations.
-    Map<String, dynamic>? passthroughOptions,
+    UploadOptions? passthroughOptions,
   }) = _UploadManyFilesOptions;
 }
 
@@ -1787,7 +1788,7 @@ abstract class DownloadManyFilesOptions with _$DownloadManyFilesOptions {
     String? stripPrefix,
 
     /// Additional options to pass through to individual download operations.
-    Map<String, dynamic>? passthroughOptions,
+    DownloadOptions? passthroughOptions,
 
     /// If `true`, skip files that already exist locally.
     bool? skipIfExists,
@@ -1837,8 +1838,8 @@ abstract class DownloadFileInChunksOptions with _$DownloadFileInChunksOptions {
     /// Size of each chunk in bytes.
     int? chunkSizeBytes,
 
-    /// Local file path to save the downloaded file.
-    String? destination,
+    /// Local file to save the downloaded content to.
+    io.File? destination,
 
     /// Validation type for data integrity checks.
     ValidationType? validation,

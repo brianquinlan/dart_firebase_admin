@@ -299,17 +299,10 @@ class TransferManager {
   /// );
   /// ```
   Future<List<BucketFile>> uploadManyFiles(
-    TransferSource filePathsOrDirectory, [
+    TransferSource source, [
     UploadManyFilesOptions options = const UploadManyFilesOptions(),
   ]) async {
-    if (options.skipIfExists == true && options.passthroughOptions != null) {
-      // Set ifGenerationMatch = 0 if skipIfExists is true
-      final passthrough = Map<String, dynamic>.from(
-        options.passthroughOptions!,
-      );
-      passthrough['preconditionOpts'] = {'ifGenerationMatch': 0};
-      // Note: This is a simplified version - actual implementation would need proper options structure
-    }
+    // Note: skipIfExists logic is handled per-file in the upload loop
 
     final limit = ParallelLimit(
       maxConcurrency: options.concurrencyLimit ?? _defaultParallelUploadLimit,
@@ -318,7 +311,7 @@ class TransferManager {
 
     // Get all paths from TransferSource
     final allPaths = <String>[];
-    await for (final path in _getAllPaths(filePathsOrDirectory)) {
+    await for (final path in _getAllPaths(source)) {
       allPaths.add(path);
     }
 
@@ -339,8 +332,33 @@ class TransferManager {
 
       futures.add(
         limit.run(() async {
-          // Use bucket.upload() - currently throws UnimplementedError
-          throw UnimplementedError('Bucket.upload() is not implemented yet.');
+          final file = io.File(filePath);
+
+          // Build UploadOptions from passthroughOptions and destination
+          final passthrough = options.passthroughOptions;
+          final existingPreconditionOpts = passthrough?.preconditionOpts;
+
+          // Merge precondition options: if skipIfExists is true, set ifGenerationMatch to 0
+          // while preserving other precondition options from passthrough
+          final preconditionOpts = options.skipIfExists == true
+              ? PreconditionOptions(
+                  ifGenerationMatch: 0,
+                  ifGenerationNotMatch:
+                      existingPreconditionOpts?.ifGenerationNotMatch,
+                  ifMetagenerationMatch:
+                      existingPreconditionOpts?.ifMetagenerationMatch,
+                  ifMetagenerationNotMatch:
+                      existingPreconditionOpts?.ifMetagenerationNotMatch,
+                )
+              : existingPreconditionOpts;
+
+          // Merge passthrough options with destination and updated precondition options
+          final uploadOptions = (passthrough ?? const UploadOptions()).copyWith(
+            destination: UploadDestination.path(destination),
+            preconditionOpts: preconditionOpts,
+          );
+
+          return await bucket.upload(file, uploadOptions);
         }),
       );
     }
@@ -360,7 +378,7 @@ class TransferManager {
   /// );
   /// ```
   Future<List<List<int>>> downloadManyFiles(
-    TransferSource filesOrFolder, [
+    TransferSource source, [
     DownloadManyFilesOptions options = const DownloadManyFilesOptions(),
   ]) async {
     final limit = ParallelLimit(
@@ -370,7 +388,7 @@ class TransferManager {
     final files = <BucketFile>[];
 
     // Get files based on TransferSource
-    switch (filesOrFolder) {
+    switch (source) {
       case DirectoryTransferSource(:final path):
         await for (final file in bucket.getFilesStream(
           GetFilesOptions(prefix: path),
@@ -392,14 +410,21 @@ class TransferManager {
 
     for (final file in files) {
       String? destination;
-      if (options.prefix != null ||
-          options.passthroughOptions?['destination'] != null) {
-        destination =
-            '${options.prefix ?? ''}${options.passthroughOptions?['destination'] ?? ''}${file.name}';
+      final passthroughDestination = options.passthroughOptions?.destination;
+
+      // Build destination path: if passthrough has destination, use it directly
+      // Otherwise build from prefix/stripPrefix + file name
+      if (passthroughDestination != null) {
+        destination = passthroughDestination.path;
+      } else {
+        if (options.prefix != null) {
+          destination = '${options.prefix}/${file.name}';
+        }
+        if (options.stripPrefix != null) {
+          destination = file.name.replaceAll(regex, '');
+        }
       }
-      if (options.stripPrefix != null) {
-        destination = file.name.replaceAll(regex, '');
-      }
+
       if (options.skipIfExists == true &&
           destination != null &&
           io.File(destination).existsSync()) {
@@ -414,8 +439,17 @@ class TransferManager {
             return <int>[];
           }
 
-          // Use file.download() - currently throws UnimplementedError
-          throw UnimplementedError('File.download() is not implemented yet.');
+          // Merge passthrough options with computed destination
+          // If passthrough already has a destination, use it; otherwise use computed destination
+          final passthrough = options.passthroughOptions;
+          final downloadOptions = (passthrough ?? const DownloadOptions())
+              .copyWith(
+                destination:
+                    passthroughDestination ??
+                    (destination != null ? io.File(destination) : null),
+              );
+
+          return await file.download(downloadOptions);
         }),
       );
     }
@@ -455,22 +489,36 @@ class TransferManager {
     }
 
     var start = 0;
-    final filePath = options.destination ?? file.name.split('/').last;
-    final fileToWrite = await io.File(filePath).open(mode: io.FileMode.write);
+    final destinationFile =
+        options.destination ?? io.File(file.name.split('/').last);
+    final fileToWrite = await destinationFile.open(mode: io.FileMode.write);
 
     final futures = <Future<Uint8List?>>[];
 
     try {
       while (start < size) {
+        final chunkStart = start;
         var chunkEnd = start + chunkSize - 1;
         if (chunkEnd > size) chunkEnd = size;
 
         futures.add(
           limit.run(() async {
-            // Use file.download() with range headers - currently throws UnimplementedError
-            throw UnimplementedError(
-              'File.download() with range headers is not implemented yet.',
+            // Download chunk with range headers
+            final downloadOptions = DownloadOptions(
+              start: chunkStart,
+              end: chunkEnd,
+              validation: options.validation,
             );
+
+            final chunkData = await file.download(downloadOptions);
+            final chunkBytes = Uint8List.fromList(chunkData);
+
+            // Write chunk to file at the correct position
+            await fileToWrite.setPosition(chunkStart);
+            await fileToWrite.writeFrom(chunkBytes);
+
+            if (options.noReturnData == true) return null;
+            return chunkBytes;
           }),
         );
 
@@ -479,8 +527,9 @@ class TransferManager {
 
       final chunks = await Future.wait(futures);
 
-      if (options.validation == ValidationType.crc32c && fileInfo.crc32c != null) {
-        final downloadedCrc32C = await Crc32c.fromFile(io.File(filePath));
+      if (options.validation == ValidationType.crc32c &&
+          fileInfo.crc32c != null) {
+        final downloadedCrc32C = await Crc32c.fromFile(destinationFile);
         if (!downloadedCrc32C.validate(fileInfo.crc32c!)) {
           throw ApiError(
             'Content download mismatch: CRC32C checksum validation failed',

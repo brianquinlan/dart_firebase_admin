@@ -8658,7 +8658,7 @@ mixin _$UploadManyFilesOptions {
  String Function(String path, UploadManyFilesOptions options)? get customDestinationBuilder;/// If `true`, skip files that already exist in the destination.
  bool? get skipIfExists;/// Prefix to add to all destination paths.
  String? get prefix;/// Additional options to pass through to individual upload operations.
- Map<String, dynamic>? get passthroughOptions;
+ UploadOptions? get passthroughOptions;
 /// Create a copy of UploadManyFilesOptions
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -8669,12 +8669,12 @@ $UploadManyFilesOptionsCopyWith<UploadManyFilesOptions> get copyWith => _$Upload
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UploadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.customDestinationBuilder, customDestinationBuilder) || other.customDestinationBuilder == customDestinationBuilder)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&const DeepCollectionEquality().equals(other.passthroughOptions, passthroughOptions));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UploadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.customDestinationBuilder, customDestinationBuilder) || other.customDestinationBuilder == customDestinationBuilder)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.passthroughOptions, passthroughOptions) || other.passthroughOptions == passthroughOptions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,concurrencyLimit,customDestinationBuilder,skipIfExists,prefix,const DeepCollectionEquality().hash(passthroughOptions));
+int get hashCode => Object.hash(runtimeType,concurrencyLimit,customDestinationBuilder,skipIfExists,prefix,passthroughOptions);
 
 @override
 String toString() {
@@ -8689,11 +8689,11 @@ abstract mixin class $UploadManyFilesOptionsCopyWith<$Res>  {
   factory $UploadManyFilesOptionsCopyWith(UploadManyFilesOptions value, $Res Function(UploadManyFilesOptions) _then) = _$UploadManyFilesOptionsCopyWithImpl;
 @useResult
 $Res call({
- int? concurrencyLimit, String Function(String path, UploadManyFilesOptions options)? customDestinationBuilder, bool? skipIfExists, String? prefix, Map<String, dynamic>? passthroughOptions
+ int? concurrencyLimit, String Function(String path, UploadManyFilesOptions options)? customDestinationBuilder, bool? skipIfExists, String? prefix, UploadOptions? passthroughOptions
 });
 
 
-
+$UploadOptionsCopyWith<$Res>? get passthroughOptions;
 
 }
 /// @nodoc
@@ -8713,10 +8713,22 @@ as int?,customDestinationBuilder: freezed == customDestinationBuilder ? _self.cu
 as String Function(String path, UploadManyFilesOptions options)?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
 as bool?,prefix: freezed == prefix ? _self.prefix : prefix // ignore: cast_nullable_to_non_nullable
 as String?,passthroughOptions: freezed == passthroughOptions ? _self.passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>?,
+as UploadOptions?,
   ));
 }
+/// Create a copy of UploadManyFilesOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UploadOptionsCopyWith<$Res>? get passthroughOptions {
+    if (_self.passthroughOptions == null) {
+    return null;
+  }
 
+  return $UploadOptionsCopyWith<$Res>(_self.passthroughOptions!, (value) {
+    return _then(_self.copyWith(passthroughOptions: value));
+  });
+}
 }
 
 
@@ -8725,7 +8737,7 @@ as Map<String, dynamic>?,
 
 
 class _UploadManyFilesOptions implements UploadManyFilesOptions {
-  const _UploadManyFilesOptions({this.concurrencyLimit, this.customDestinationBuilder, this.skipIfExists, this.prefix, final  Map<String, dynamic>? passthroughOptions}): _passthroughOptions = passthroughOptions;
+  const _UploadManyFilesOptions({this.concurrencyLimit, this.customDestinationBuilder, this.skipIfExists, this.prefix, this.passthroughOptions});
   
 
 /// Maximum number of concurrent uploads. Defaults to a reasonable value.
@@ -8740,16 +8752,7 @@ class _UploadManyFilesOptions implements UploadManyFilesOptions {
 /// Prefix to add to all destination paths.
 @override final  String? prefix;
 /// Additional options to pass through to individual upload operations.
- final  Map<String, dynamic>? _passthroughOptions;
-/// Additional options to pass through to individual upload operations.
-@override Map<String, dynamic>? get passthroughOptions {
-  final value = _passthroughOptions;
-  if (value == null) return null;
-  if (_passthroughOptions is EqualUnmodifiableMapView) return _passthroughOptions;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableMapView(value);
-}
-
+@override final  UploadOptions? passthroughOptions;
 
 /// Create a copy of UploadManyFilesOptions
 /// with the given fields replaced by the non-null parameter values.
@@ -8761,12 +8764,12 @@ _$UploadManyFilesOptionsCopyWith<_UploadManyFilesOptions> get copyWith => __$Upl
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UploadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.customDestinationBuilder, customDestinationBuilder) || other.customDestinationBuilder == customDestinationBuilder)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&const DeepCollectionEquality().equals(other._passthroughOptions, _passthroughOptions));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UploadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.customDestinationBuilder, customDestinationBuilder) || other.customDestinationBuilder == customDestinationBuilder)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.passthroughOptions, passthroughOptions) || other.passthroughOptions == passthroughOptions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,concurrencyLimit,customDestinationBuilder,skipIfExists,prefix,const DeepCollectionEquality().hash(_passthroughOptions));
+int get hashCode => Object.hash(runtimeType,concurrencyLimit,customDestinationBuilder,skipIfExists,prefix,passthroughOptions);
 
 @override
 String toString() {
@@ -8781,11 +8784,11 @@ abstract mixin class _$UploadManyFilesOptionsCopyWith<$Res> implements $UploadMa
   factory _$UploadManyFilesOptionsCopyWith(_UploadManyFilesOptions value, $Res Function(_UploadManyFilesOptions) _then) = __$UploadManyFilesOptionsCopyWithImpl;
 @override @useResult
 $Res call({
- int? concurrencyLimit, String Function(String path, UploadManyFilesOptions options)? customDestinationBuilder, bool? skipIfExists, String? prefix, Map<String, dynamic>? passthroughOptions
+ int? concurrencyLimit, String Function(String path, UploadManyFilesOptions options)? customDestinationBuilder, bool? skipIfExists, String? prefix, UploadOptions? passthroughOptions
 });
 
 
-
+@override $UploadOptionsCopyWith<$Res>? get passthroughOptions;
 
 }
 /// @nodoc
@@ -8804,12 +8807,24 @@ concurrencyLimit: freezed == concurrencyLimit ? _self.concurrencyLimit : concurr
 as int?,customDestinationBuilder: freezed == customDestinationBuilder ? _self.customDestinationBuilder : customDestinationBuilder // ignore: cast_nullable_to_non_nullable
 as String Function(String path, UploadManyFilesOptions options)?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
 as bool?,prefix: freezed == prefix ? _self.prefix : prefix // ignore: cast_nullable_to_non_nullable
-as String?,passthroughOptions: freezed == passthroughOptions ? _self._passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>?,
+as String?,passthroughOptions: freezed == passthroughOptions ? _self.passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
+as UploadOptions?,
   ));
 }
 
+/// Create a copy of UploadManyFilesOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UploadOptionsCopyWith<$Res>? get passthroughOptions {
+    if (_self.passthroughOptions == null) {
+    return null;
+  }
 
+  return $UploadOptionsCopyWith<$Res>(_self.passthroughOptions!, (value) {
+    return _then(_self.copyWith(passthroughOptions: value));
+  });
+}
 }
 
 /// @nodoc
@@ -8819,7 +8834,7 @@ mixin _$DownloadManyFilesOptions {
  int? get concurrencyLimit;/// Prefix to filter files to download.
  String? get prefix;/// Prefix to strip from file paths when saving locally.
  String? get stripPrefix;/// Additional options to pass through to individual download operations.
- Map<String, dynamic>? get passthroughOptions;/// If `true`, skip files that already exist locally.
+ DownloadOptions? get passthroughOptions;/// If `true`, skip files that already exist locally.
  bool? get skipIfExists;
 /// Create a copy of DownloadManyFilesOptions
 /// with the given fields replaced by the non-null parameter values.
@@ -8831,12 +8846,12 @@ $DownloadManyFilesOptionsCopyWith<DownloadManyFilesOptions> get copyWith => _$Do
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.stripPrefix, stripPrefix) || other.stripPrefix == stripPrefix)&&const DeepCollectionEquality().equals(other.passthroughOptions, passthroughOptions)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.stripPrefix, stripPrefix) || other.stripPrefix == stripPrefix)&&(identical(other.passthroughOptions, passthroughOptions) || other.passthroughOptions == passthroughOptions)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,concurrencyLimit,prefix,stripPrefix,const DeepCollectionEquality().hash(passthroughOptions),skipIfExists);
+int get hashCode => Object.hash(runtimeType,concurrencyLimit,prefix,stripPrefix,passthroughOptions,skipIfExists);
 
 @override
 String toString() {
@@ -8851,11 +8866,11 @@ abstract mixin class $DownloadManyFilesOptionsCopyWith<$Res>  {
   factory $DownloadManyFilesOptionsCopyWith(DownloadManyFilesOptions value, $Res Function(DownloadManyFilesOptions) _then) = _$DownloadManyFilesOptionsCopyWithImpl;
 @useResult
 $Res call({
- int? concurrencyLimit, String? prefix, String? stripPrefix, Map<String, dynamic>? passthroughOptions, bool? skipIfExists
+ int? concurrencyLimit, String? prefix, String? stripPrefix, DownloadOptions? passthroughOptions, bool? skipIfExists
 });
 
 
-
+$DownloadOptionsCopyWith<$Res>? get passthroughOptions;
 
 }
 /// @nodoc
@@ -8874,11 +8889,23 @@ concurrencyLimit: freezed == concurrencyLimit ? _self.concurrencyLimit : concurr
 as int?,prefix: freezed == prefix ? _self.prefix : prefix // ignore: cast_nullable_to_non_nullable
 as String?,stripPrefix: freezed == stripPrefix ? _self.stripPrefix : stripPrefix // ignore: cast_nullable_to_non_nullable
 as String?,passthroughOptions: freezed == passthroughOptions ? _self.passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
+as DownloadOptions?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
 }
+/// Create a copy of DownloadManyFilesOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DownloadOptionsCopyWith<$Res>? get passthroughOptions {
+    if (_self.passthroughOptions == null) {
+    return null;
+  }
 
+  return $DownloadOptionsCopyWith<$Res>(_self.passthroughOptions!, (value) {
+    return _then(_self.copyWith(passthroughOptions: value));
+  });
+}
 }
 
 
@@ -8887,7 +8914,7 @@ as bool?,
 
 
 class _DownloadManyFilesOptions implements DownloadManyFilesOptions {
-  const _DownloadManyFilesOptions({this.concurrencyLimit, this.prefix, this.stripPrefix, final  Map<String, dynamic>? passthroughOptions, this.skipIfExists}): _passthroughOptions = passthroughOptions;
+  const _DownloadManyFilesOptions({this.concurrencyLimit, this.prefix, this.stripPrefix, this.passthroughOptions, this.skipIfExists});
   
 
 /// Maximum number of concurrent downloads. Defaults to a reasonable value.
@@ -8897,16 +8924,7 @@ class _DownloadManyFilesOptions implements DownloadManyFilesOptions {
 /// Prefix to strip from file paths when saving locally.
 @override final  String? stripPrefix;
 /// Additional options to pass through to individual download operations.
- final  Map<String, dynamic>? _passthroughOptions;
-/// Additional options to pass through to individual download operations.
-@override Map<String, dynamic>? get passthroughOptions {
-  final value = _passthroughOptions;
-  if (value == null) return null;
-  if (_passthroughOptions is EqualUnmodifiableMapView) return _passthroughOptions;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableMapView(value);
-}
-
+@override final  DownloadOptions? passthroughOptions;
 /// If `true`, skip files that already exist locally.
 @override final  bool? skipIfExists;
 
@@ -8920,12 +8938,12 @@ _$DownloadManyFilesOptionsCopyWith<_DownloadManyFilesOptions> get copyWith => __
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.stripPrefix, stripPrefix) || other.stripPrefix == stripPrefix)&&const DeepCollectionEquality().equals(other._passthroughOptions, _passthroughOptions)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadManyFilesOptions&&(identical(other.concurrencyLimit, concurrencyLimit) || other.concurrencyLimit == concurrencyLimit)&&(identical(other.prefix, prefix) || other.prefix == prefix)&&(identical(other.stripPrefix, stripPrefix) || other.stripPrefix == stripPrefix)&&(identical(other.passthroughOptions, passthroughOptions) || other.passthroughOptions == passthroughOptions)&&(identical(other.skipIfExists, skipIfExists) || other.skipIfExists == skipIfExists));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,concurrencyLimit,prefix,stripPrefix,const DeepCollectionEquality().hash(_passthroughOptions),skipIfExists);
+int get hashCode => Object.hash(runtimeType,concurrencyLimit,prefix,stripPrefix,passthroughOptions,skipIfExists);
 
 @override
 String toString() {
@@ -8940,11 +8958,11 @@ abstract mixin class _$DownloadManyFilesOptionsCopyWith<$Res> implements $Downlo
   factory _$DownloadManyFilesOptionsCopyWith(_DownloadManyFilesOptions value, $Res Function(_DownloadManyFilesOptions) _then) = __$DownloadManyFilesOptionsCopyWithImpl;
 @override @useResult
 $Res call({
- int? concurrencyLimit, String? prefix, String? stripPrefix, Map<String, dynamic>? passthroughOptions, bool? skipIfExists
+ int? concurrencyLimit, String? prefix, String? stripPrefix, DownloadOptions? passthroughOptions, bool? skipIfExists
 });
 
 
-
+@override $DownloadOptionsCopyWith<$Res>? get passthroughOptions;
 
 }
 /// @nodoc
@@ -8962,13 +8980,25 @@ class __$DownloadManyFilesOptionsCopyWithImpl<$Res>
 concurrencyLimit: freezed == concurrencyLimit ? _self.concurrencyLimit : concurrencyLimit // ignore: cast_nullable_to_non_nullable
 as int?,prefix: freezed == prefix ? _self.prefix : prefix // ignore: cast_nullable_to_non_nullable
 as String?,stripPrefix: freezed == stripPrefix ? _self.stripPrefix : stripPrefix // ignore: cast_nullable_to_non_nullable
-as String?,passthroughOptions: freezed == passthroughOptions ? _self._passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
+as String?,passthroughOptions: freezed == passthroughOptions ? _self.passthroughOptions : passthroughOptions // ignore: cast_nullable_to_non_nullable
+as DownloadOptions?,skipIfExists: freezed == skipIfExists ? _self.skipIfExists : skipIfExists // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
 }
 
+/// Create a copy of DownloadManyFilesOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DownloadOptionsCopyWith<$Res>? get passthroughOptions {
+    if (_self.passthroughOptions == null) {
+    return null;
+  }
 
+  return $DownloadOptionsCopyWith<$Res>(_self.passthroughOptions!, (value) {
+    return _then(_self.copyWith(passthroughOptions: value));
+  });
+}
 }
 
 /// @nodoc
@@ -9164,8 +9194,8 @@ mixin _$DownloadFileInChunksOptions {
 
 /// Maximum number of concurrent chunk downloads.
  int? get concurrencyLimit;/// Size of each chunk in bytes.
- int? get chunkSizeBytes;/// Local file path to save the downloaded file.
- String? get destination;/// Validation type for data integrity checks.
+ int? get chunkSizeBytes;/// Local file to save the downloaded content to.
+ io.File? get destination;/// Validation type for data integrity checks.
  ValidationType? get validation;/// If `true`, don't return the downloaded data (only save to file).
  bool? get noReturnData;
 /// Create a copy of DownloadFileInChunksOptions
@@ -9198,7 +9228,7 @@ abstract mixin class $DownloadFileInChunksOptionsCopyWith<$Res>  {
   factory $DownloadFileInChunksOptionsCopyWith(DownloadFileInChunksOptions value, $Res Function(DownloadFileInChunksOptions) _then) = _$DownloadFileInChunksOptionsCopyWithImpl;
 @useResult
 $Res call({
- int? concurrencyLimit, int? chunkSizeBytes, String? destination, ValidationType? validation, bool? noReturnData
+ int? concurrencyLimit, int? chunkSizeBytes, io.File? destination, ValidationType? validation, bool? noReturnData
 });
 
 
@@ -9220,7 +9250,7 @@ class _$DownloadFileInChunksOptionsCopyWithImpl<$Res>
 concurrencyLimit: freezed == concurrencyLimit ? _self.concurrencyLimit : concurrencyLimit // ignore: cast_nullable_to_non_nullable
 as int?,chunkSizeBytes: freezed == chunkSizeBytes ? _self.chunkSizeBytes : chunkSizeBytes // ignore: cast_nullable_to_non_nullable
 as int?,destination: freezed == destination ? _self.destination : destination // ignore: cast_nullable_to_non_nullable
-as String?,validation: freezed == validation ? _self.validation : validation // ignore: cast_nullable_to_non_nullable
+as io.File?,validation: freezed == validation ? _self.validation : validation // ignore: cast_nullable_to_non_nullable
 as ValidationType?,noReturnData: freezed == noReturnData ? _self.noReturnData : noReturnData // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
@@ -9241,8 +9271,8 @@ class _DownloadFileInChunksOptions implements DownloadFileInChunksOptions {
 @override final  int? concurrencyLimit;
 /// Size of each chunk in bytes.
 @override final  int? chunkSizeBytes;
-/// Local file path to save the downloaded file.
-@override final  String? destination;
+/// Local file to save the downloaded content to.
+@override final  io.File? destination;
 /// Validation type for data integrity checks.
 @override final  ValidationType? validation;
 /// If `true`, don't return the downloaded data (only save to file).
@@ -9278,7 +9308,7 @@ abstract mixin class _$DownloadFileInChunksOptionsCopyWith<$Res> implements $Dow
   factory _$DownloadFileInChunksOptionsCopyWith(_DownloadFileInChunksOptions value, $Res Function(_DownloadFileInChunksOptions) _then) = __$DownloadFileInChunksOptionsCopyWithImpl;
 @override @useResult
 $Res call({
- int? concurrencyLimit, int? chunkSizeBytes, String? destination, ValidationType? validation, bool? noReturnData
+ int? concurrencyLimit, int? chunkSizeBytes, io.File? destination, ValidationType? validation, bool? noReturnData
 });
 
 
@@ -9300,7 +9330,7 @@ class __$DownloadFileInChunksOptionsCopyWithImpl<$Res>
 concurrencyLimit: freezed == concurrencyLimit ? _self.concurrencyLimit : concurrencyLimit // ignore: cast_nullable_to_non_nullable
 as int?,chunkSizeBytes: freezed == chunkSizeBytes ? _self.chunkSizeBytes : chunkSizeBytes // ignore: cast_nullable_to_non_nullable
 as int?,destination: freezed == destination ? _self.destination : destination // ignore: cast_nullable_to_non_nullable
-as String?,validation: freezed == validation ? _self.validation : validation // ignore: cast_nullable_to_non_nullable
+as io.File?,validation: freezed == validation ? _self.validation : validation // ignore: cast_nullable_to_non_nullable
 as ValidationType?,noReturnData: freezed == noReturnData ? _self.noReturnData : noReturnData // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
