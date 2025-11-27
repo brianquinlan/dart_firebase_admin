@@ -154,7 +154,7 @@ class _ResumableUploadSink implements StreamSink<List<int>> {
 
               // Report progress after final chunk is uploaded
               _config.onUploadProgress?.call(
-                UploadProgress._(
+                UploadProgress(
                   bytesWritten: _bytesWritten,
                   totalBytes: _config.metadata.size != null
                       ? int.tryParse(_config.metadata.size!)
@@ -328,7 +328,7 @@ class _ResumableUploadSink implements StreamSink<List<int>> {
 
           // Report progress after chunk is uploaded
           _config.onUploadProgress?.call(
-            UploadProgress._(
+            UploadProgress(
               bytesWritten: _bytesWritten,
               totalBytes: _config.metadata.size != null
                   ? int.tryParse(_config.metadata.size!)

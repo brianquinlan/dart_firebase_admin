@@ -123,7 +123,7 @@ class XMLMultiPartUploadHelper {
   Future<void> uploadPart(
     int partNumber,
     Uint8List chunk, [
-    String? validation,
+    ValidationType? validation,
   ]) async {
     final url = baseUrl.replace(
       queryParameters: {
@@ -137,7 +137,7 @@ class XMLMultiPartUploadHelper {
       try {
         final requestHeaders = _setGoogApiClientHeaders();
 
-        if (validation == 'md5') {
+        if (validation == ValidationType.md5) {
           final hash = crypto.md5.convert(chunk);
           requestHeaders['Content-MD5'] = base64Encode(hash.bytes);
         }
@@ -371,17 +371,17 @@ class TransferManager {
 
     // Get files based on TransferSource
     switch (filesOrFolder) {
-      case _DirectoryTransferSource(:final path):
+      case DirectoryTransferSource(:final path):
         await for (final file in bucket.getFilesStream(
           GetFilesOptions(prefix: path),
         )) {
           files.add(file);
         }
-      case _FilesTransferSource(:final paths):
+      case FilesTransferSource(:final paths):
         for (final path in paths) {
           files.add(bucket.file(path));
         }
-      case _FileTransferSource(:final path):
+      case FileTransferSource(:final path):
         files.add(bucket.file(path));
     }
 
@@ -479,7 +479,7 @@ class TransferManager {
 
       final chunks = await Future.wait(futures);
 
-      if (options.validation == 'crc32c' && fileInfo.crc32c != null) {
+      if (options.validation == ValidationType.crc32c && fileInfo.crc32c != null) {
         final downloadedCrc32C = await Crc32c.fromFile(io.File(filePath));
         if (!downloadedCrc32C.validate(fileInfo.crc32c!)) {
           throw ApiError(
@@ -598,13 +598,13 @@ class TransferManager {
   /// Get all file paths from a TransferSource.
   Stream<String> _getAllPaths(TransferSource source) async* {
     switch (source) {
-      case _FileTransferSource(:final path):
+      case FileTransferSource(:final path):
         yield path;
-      case _FilesTransferSource(:final paths):
+      case FilesTransferSource(:final paths):
         for (final path in paths) {
           yield path;
         }
-      case _DirectoryTransferSource(:final path):
+      case DirectoryTransferSource(:final path):
         yield* _getPathsFromDirectory(path);
     }
   }

@@ -5,10 +5,7 @@ import 'package:googleapis/storage/v1.dart';
 import 'package:googleapis_auth_utils/googleapis_auth_utils.dart';
 import 'package:googleapis_storage/googleapis_storage.dart';
 
-/// Matches the Node SDK IdempotencyStrategy enum semantics.
-enum IdempotencyStrategy { retryAlways, retryConditional, retryNever }
 
-typedef RetryableErrorFn = bool Function(dynamic error);
 
 /// Decide if an error should be retried, roughly mirroring Node's
 /// Util.shouldRetryRequest (status codes + JSON error reasons).

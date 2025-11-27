@@ -1,5 +1,6 @@
 library;
 
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
@@ -20,8 +21,10 @@ import 'src/internal/streaming.dart';
 import 'src/internal/limit.dart';
 import 'src/internal/xml_multipart_helper.dart';
 import 'version.g.dart';
+import 'src/types.dart';
 
 export 'src/internal/api_error.dart';
+export 'src/types.dart';
 
 part 'src/acl.dart';
 part 'src/bucket.dart';
@@ -36,7 +39,6 @@ part 'src/resumable_upload.dart';
 part 'src/signer.dart';
 part 'src/storage.dart';
 part 'src/transfer_manager.dart';
-part 'src/types.dart';
 
 /// Symbol for accessing environment variables in tests via Zones.
 /// This allows tests to override Platform.environment values.

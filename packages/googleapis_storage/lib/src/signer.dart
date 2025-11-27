@@ -2,26 +2,12 @@ part of '../googleapis_storage.dart';
 
 
 
-class _InternalSignedUrlConfig extends SignedUrlConfig {
+class _InternalSignedUrlConfig {
+  final SignedUrlConfig signedConfig;
   final Bucket bucket;
   final File? file;
 
-  _InternalSignedUrlConfig._({
-    required this.bucket,
-    this.file,
-    required super.method,
-    required super.expires,
-    super.accessibleAt,
-    super.virtualHostedStyle,
-    super.cname,
-    super.version,
-    super.extensionHeaders,
-    super.queryParams,
-    super.contentMd5,
-    super.contentType,
-    super.host,
-    super.signingEndpoint,
-  });
+  _InternalSignedUrlConfig({required this.signedConfig, required this.bucket, this.file,});
 }
 
 /// Function used to sign the v4 `blobToSign` string.
@@ -70,21 +56,8 @@ class URLSigner {
 
     const secondsToMilliseconds = 1000;
     // Create internal config object with merged values
-    final internalConfig = _InternalSignedUrlConfig._(
-      method: config.method,
-      expires: config.expires,
-      accessibleAt: DateTime.fromMillisecondsSinceEpoch(
-        secondsToMilliseconds * accessibleAtInSeconds,
-      ),
-      virtualHostedStyle: config.virtualHostedStyle,
-      version: config.version,
-      cname: customHost ?? config.cname,
-      extensionHeaders: config.extensionHeaders,
-      queryParams: config.queryParams,
-      contentMd5: config.contentMd5,
-      contentType: config.contentType,
-      host: config.host,
-      signingEndpoint: config.signingEndpoint,
+    final internalConfig = _InternalSignedUrlConfig(
+      signedConfig: config,
       bucket: bucket,
       file: file,
     );
@@ -98,12 +71,12 @@ class URLSigner {
 
     // Build the signed URL
     final baseUrl = config.host?.toString() ??
-        internalConfig.cname ??
+        internalConfig.signedConfig.cname ??
         bucket.storage.config.apiEndpoint;
 
     final signedUrl = Uri.parse(baseUrl);
     final resourcePath = _getResourcePath(
-      internalConfig.cname != null,
+      internalConfig.signedConfig.cname != null,
       internalConfig.bucket,
       internalConfig.file,
     );

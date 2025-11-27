@@ -158,21 +158,18 @@ class File extends ServiceObject<FileMetadata>
   /// By default, this will copy the file to the same bucket, but you can choose
   /// to copy it to another Bucket by providing a Bucket or File object or a URL
   /// starting with "gs://". The generation of the file will not be preserved.
-  Future<File> copy(
-    FileBucketDestination destination, {
-    CopyOptions? options,
-  }) async {
+  Future<File> copy(CopyDestination destination, {CopyOptions? options}) async {
     final copyOptions = options ?? const CopyOptions();
     late Bucket destBucket;
     late File newFile;
 
-    if (destination is _FileInstanceDestination) {
+    if (destination is FileCopyDestination) {
       destBucket = destination.file.bucket;
       newFile = destination.file;
-    } else if (destination is _BucketDestination) {
+    } else if (destination is BucketCopyDestination) {
       destBucket = destination.bucket;
       newFile = destBucket.file(name);
-    } else if (destination is _PathDestination) {
+    } else if (destination is PathCopyDestination) {
       final gsMatch = RegExp(
         r'^gs://([a-z0-9_.-]+)/(.+)$',
       ).firstMatch(destination.path);
@@ -230,7 +227,7 @@ class File extends ServiceObject<FileMetadata>
       // If rewriteToken is present, we need to continue the copy
       if (response.rewriteToken != null && response.rewriteToken!.isNotEmpty) {
         return await copy(
-          FileBucketDestination.file(newFile),
+          FileCopyDestination(newFile),
           options: CopyOptions(
             token: response.rewriteToken,
             destinationKmsKeyName: copyOptions.destinationKmsKeyName,
@@ -1002,14 +999,14 @@ class File extends ServiceObject<FileMetadata>
   /// Overwriting the destination object is allowed by default, but can be prevented
   /// using preconditions.
   Future<File> moveFileAtomic(
-    FileDestination destination, {
+    MoveFileAtomicDestination destination, {
     MoveOptions? options,
   }) async {
     final moveOptions = options ?? const MoveOptions();
     String destName;
     File? newFile;
 
-    if (destination is _PathDestination) {
+    if (destination is PathMoveFileAtomicDestination) {
       // Check for gs:// URL format (but must be same bucket)
       final gsMatch = RegExp(
         r'^gs://([a-z0-9_.-]+)/(.+)$',
@@ -1024,7 +1021,7 @@ class File extends ServiceObject<FileMetadata>
       } else {
         destName = destination.path;
       }
-    } else if (destination is _FileInstanceDestination) {
+    } else if (destination is FileMoveFileAtomicDestination) {
       if (destination.file.bucket.id != bucket.id) {
         throw ArgumentError(
           'moveFileAtomic can only move within the same bucket',
@@ -1066,10 +1063,7 @@ class File extends ServiceObject<FileMetadata>
   /// so this method is a composition of [copy] (to the new location) and [delete]
   /// (from the old location). While unlikely, it is possible that an error could be
   /// triggered from either one of these API calls failing.
-  Future<File> move(
-    FileBucketDestination destination, {
-    MoveOptions? options,
-  }) async {
+  Future<File> move(CopyDestination destination, {MoveOptions? options}) async {
     final moveOptions = options ?? const MoveOptions();
 
     final copiedFile = await copy(
@@ -1089,7 +1083,7 @@ class File extends ServiceObject<FileMetadata>
   }
 
   Future<File> rename(
-    FileBucketDestination destinationFile, {
+    CopyDestination destinationFile, {
     MoveOptions? options,
   }) async {
     return await move(destinationFile, options: options);
@@ -1156,10 +1150,7 @@ class File extends ServiceObject<FileMetadata>
         : const CopyOptions();
 
     // Copy this file to the new file
-    return await copy(
-      FileBucketDestination.file(newFile),
-      options: copyOptions,
-    );
+    return await copy(CopyDestination.file(newFile), options: copyOptions);
   }
 
   Future<void> save(SaveData data, [SaveOptions? options]) async {
@@ -1313,7 +1304,7 @@ class File extends ServiceObject<FileMetadata>
 
         // Report progress as data is buffered
         options.onUploadProgress?.call(
-          UploadProgress._(
+          UploadProgress(
             bytesWritten: bytesWritten,
             totalBytes: metadata.size != null
                 ? int.tryParse(metadata.size!)
@@ -1519,7 +1510,7 @@ class File extends ServiceObject<FileMetadata>
 
     // Use copy to update storage class - copy to same file with new storage class
     await copy(
-      FileBucketDestination.file(this),
+      CopyDestination.file(this),
       options: CopyOptions(
         userProject: setStorageClassOptions.userProject ?? userProject,
         preconditionOpts: setStorageClassOptions,
@@ -1552,26 +1543,6 @@ SignedUrlMethod _fileActionToHttpMethod(String action) {
   }
 }
 
-sealed class FileDestination {
-  const FileDestination._();
-  const factory FileDestination.file(File file) = _FileInstanceDestination;
-  const factory FileDestination.path(String path) = _PathDestination;
-}
-
-sealed class FileBucketDestination extends FileDestination {
-  const FileBucketDestination._() : super._();
-  const factory FileBucketDestination.file(File file) =
-      _FileInstanceDestination;
-  const factory FileBucketDestination.bucket(Bucket bucket) =
-      _BucketDestination;
-  const factory FileBucketDestination.path(String path) = _PathDestination;
-}
-
-class _FileInstanceDestination extends FileBucketDestination {
-  final File file;
-  const _FileInstanceDestination(this.file) : super._();
-}
-
 /// A wrapper around StreamSink that ensures 'done' waits for the upload to complete.
 ///
 /// For simple (multipart) uploads, the actual HTTP request happens asynchronously
@@ -1598,16 +1569,6 @@ class _SimpleUploadSink implements StreamSink<List<int>> {
 
   @override
   Future<void> addStream(Stream<List<int>> stream) => _sink.addStream(stream);
-}
-
-class _BucketDestination extends FileBucketDestination {
-  final Bucket bucket;
-  const _BucketDestination(this.bucket) : super._();
-}
-
-class _PathDestination extends FileBucketDestination {
-  final String path;
-  const _PathDestination(this.path) : super._();
 }
 
 /// Internal sink that wraps the upload stream and handles validation.

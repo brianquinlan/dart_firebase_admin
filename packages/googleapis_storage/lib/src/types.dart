@@ -1,346 +1,553 @@
-part of '../googleapis_storage.dart';
+import 'dart:convert';
+import 'dart:io' as io;
 
-class GetServiceAccountOptions {
-  final String? userProject;
-  final String? projectId;
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:googleapis/storage/v1.dart' as storage_v1;
+import 'package:googleapis_storage/googleapis_storage.dart';
 
-  const GetServiceAccountOptions({this.userProject, this.projectId});
+part 'types.freezed.dart';
+
+/// Strategy for determining when to retry operations based on idempotency.
+///
+/// Matches the Node SDK IdempotencyStrategy enum semantics.
+enum IdempotencyStrategy {
+  /// Always retry operations, regardless of idempotency.
+  retryAlways,
+
+  /// Retry operations conditionally based on idempotency guarantees.
+  retryConditional,
+
+  /// Never retry operations.
+  retryNever,
 }
 
-class RetryOptions {
-  final bool autoRetry;
-  final int maxRetries;
-  final Duration totalTimeout;
-  final Duration maxRetryDelay;
-  final double retryDelayMultiplier;
-  final RetryableErrorFn? retryableErrorFn;
-  final IdempotencyStrategy idempotencyStrategy;
+/// Function that determines if an error is retryable.
+///
+/// Returns `true` if the error should be retried, `false` otherwise.
+typedef RetryableErrorFn = bool Function(Object error);
 
-  const RetryOptions({
-    this.autoRetry = true,
-    this.maxRetries = 3,
-    this.totalTimeout = const Duration(seconds: 600),
-    this.maxRetryDelay = const Duration(seconds: 64),
-    this.retryDelayMultiplier = 2.0,
-    this.retryableErrorFn,
-    this.idempotencyStrategy = IdempotencyStrategy.retryConditional,
-  });
+/// Options for getting the service account associated with a project.
+///
+/// See [Storage.getServiceAccount] for usage.
+@freezed
+abstract class GetServiceAccountOptions with _$GetServiceAccountOptions {
+  const factory GetServiceAccountOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  RetryOptions copyWith({
-    bool? autoRetry,
-    int? maxRetries,
-    Duration? totalTimeout,
-    Duration? maxRetryDelay,
-    double? retryDelayMultiplier,
+    /// The project identifier. If not provided, uses the default project.
+    String? projectId,
+  }) = _GetServiceAccountOptions;
+}
+
+/// Configuration options for retry behavior.
+///
+/// Controls how the client retries failed operations.
+@freezed
+abstract class RetryOptions with _$RetryOptions {
+  const factory RetryOptions({
+    /// Whether to automatically retry failed requests. Defaults to `true`.
+    @Default(true) bool autoRetry,
+
+    /// Maximum number of retry attempts. Defaults to `3`.
+    @Default(3) int maxRetries,
+
+    /// Maximum total time to spend on retries. Defaults to `600 seconds`.
+    @Default(Duration(seconds: 600)) Duration totalTimeout,
+
+    /// Maximum delay between retry attempts. Defaults to `64 seconds`.
+    @Default(Duration(seconds: 64)) Duration maxRetryDelay,
+
+    /// Multiplier for exponential backoff. Defaults to `2.0`.
+    @Default(2.0) double retryDelayMultiplier,
+
+    /// Custom function to determine if an error is retryable.
+    ///
+    /// If provided, this function is called for each error to determine
+    /// whether it should be retried. If not provided, default retry logic is used.
     RetryableErrorFn? retryableErrorFn,
-    IdempotencyStrategy? idempotencyStrategy,
-  }) {
-    return RetryOptions(
-      autoRetry: autoRetry ?? this.autoRetry,
-      maxRetries: maxRetries ?? this.maxRetries,
-      totalTimeout: totalTimeout ?? this.totalTimeout,
-      maxRetryDelay: maxRetryDelay ?? this.maxRetryDelay,
-      retryDelayMultiplier: retryDelayMultiplier ?? this.retryDelayMultiplier,
-      retryableErrorFn: retryableErrorFn ?? this.retryableErrorFn,
-      idempotencyStrategy: idempotencyStrategy ?? this.idempotencyStrategy,
-    );
-  }
+
+    /// Strategy for determining retry behavior based on idempotency.
+    ///
+    /// Defaults to [IdempotencyStrategy.retryConditional].
+    @Default(IdempotencyStrategy.retryConditional)
+    IdempotencyStrategy idempotencyStrategy,
+  }) = _RetryOptions;
 }
 
+/// Base class for precondition options used in storage operations.
+///
+/// Preconditions allow you to ensure that operations only succeed if certain
+/// conditions are met, preventing race conditions and ensuring data consistency.
 class PreconditionOptions {
-  final int? ifGenerationMatch;
-  final int? ifGenerationNotMatch;
-  final int? ifMetagenerationMatch;
-  final int? ifMetagenerationNotMatch;
-
   const PreconditionOptions({
     this.ifGenerationMatch,
     this.ifGenerationNotMatch,
     this.ifMetagenerationMatch,
     this.ifMetagenerationNotMatch,
   });
+
+  /// Only perform the operation if the object's generation matches this value.
+  ///
+  /// The generation is a monotonically increasing number that changes whenever
+  /// the object's data or metadata is modified.
+  final int? ifGenerationMatch;
+
+  /// Only perform the operation if the object's generation does not match this value.
+  final int? ifGenerationNotMatch;
+
+  /// Only perform the operation if the object's metageneration matches this value.
+  ///
+  /// The metageneration is a monotonically increasing number that changes
+  /// whenever the object's metadata is modified.
+  final int? ifMetagenerationMatch;
+
+  /// Only perform the operation if the object's metageneration does not match this value.
+  final int? ifMetagenerationNotMatch;
 }
 
 /// Options for delete operations, mirroring Node's DeleteOptions.
 ///
 /// Extends [PreconditionOptions] to include delete-specific options.
-class DeleteOptions extends PreconditionOptions {
-  /// If true, ignore 404 errors (treat as success if object doesn't exist).
-  final bool ignoreNotFound;
+@freezed
+abstract class DeleteOptions extends PreconditionOptions with _$DeleteOptions {
+  const DeleteOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
 
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
+  const factory DeleteOptions({
+    /// If `true`, ignore 404 errors (treat as success if object doesn't exist).
+    ///
+    /// Defaults to `false`.
+    @Default(false) bool ignoreNotFound,
 
-  const DeleteOptions({
-    this.ignoreNotFound = false,
-    this.userProject,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-  });
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _DeleteOptions;
 }
 
+/// Configuration for Cross-Origin Resource Sharing (CORS) on a bucket.
+///
+/// See [Bucket.setCorsConfiguration] for usage.
 typedef CorsConfiguration = storage_v1.BucketCors;
 
-class RestoreOptions {
-  final int generation;
-  final Projection? projection;
-  final String? userProject;
+/// Options for restoring a soft-deleted bucket.
+@freezed
+abstract class RestoreOptions with _$RestoreOptions {
+  const factory RestoreOptions({
+    /// The generation of the bucket to restore.
+    required int generation,
 
-  const RestoreOptions({
-    required this.generation,
-    this.projection,
-    this.userProject,
-  });
+    /// The set of properties to return in the response.
+    Projection? projection,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _RestoreOptions;
 }
 
-class SetStorageClassOptions extends SetBucketMetadataOptions {
-  const SetStorageClassOptions({
-    super.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+/// Options for setting storage class, mirroring Node's SetStorageClassOptions.
+///
+/// Extends [SetBucketMetadataOptions] to include storage class-specific options.
+@freezed
+abstract class SetStorageClassOptions extends SetBucketMetadataOptions
+    with _$SetStorageClassOptions {
+  const SetStorageClassOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super._(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
+
+  const factory SetStorageClassOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Apply a predefined set of access controls to the bucket.
+    PredefinedAcl? predefinedAcl,
+
+    /// Only perform the operation if the bucket's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the bucket's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the bucket's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the bucket's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _SetStorageClassOptions;
 }
 
-class SetLabelsOptions extends SetBucketMetadataOptions {
-  const SetLabelsOptions({
-    super.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+/// Options for setting labels, mirroring Node's SetLabelsOptions.
+///
+/// Extends [SetBucketMetadataOptions] to include label-specific options.
+@freezed
+abstract class SetLabelsOptions extends SetBucketMetadataOptions
+    with _$SetLabelsOptions {
+  const SetLabelsOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super._(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
+
+  const factory SetLabelsOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Apply a predefined set of access controls to the bucket.
+    PredefinedAcl? predefinedAcl,
+
+    /// Only perform the operation if the bucket's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the bucket's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the bucket's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the bucket's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _SetLabelsOptions;
 }
 
+/// Base class for bucket visibility options.
+///
+/// This is a sealed class that cannot be instantiated directly.
+/// Use [MakeBucketPublicOptions] or [MakeBucketPrivateOptions] instead.
 sealed class MakeBucketVisibilityOptions {
   const MakeBucketVisibilityOptions._();
 }
 
-class MakeBucketPublicOptions {
-  final bool? includeFiles;
-  final bool? force;
+/// Options for making a bucket public.
+@freezed
+abstract class MakeBucketPublicOptions with _$MakeBucketPublicOptions {
+  const factory MakeBucketPublicOptions({
+    /// If `true`, also make all files in the bucket public.
+    bool? includeFiles,
 
-  const MakeBucketPublicOptions({this.includeFiles, this.force});
+    /// If `true`, proceed even if the bucket already has public access.
+    bool? force,
+  }) = _MakeBucketPublicOptions;
 }
 
-class MakeBucketPrivateOptions {
-  final bool? includeFiles;
-  final bool? force;
-  final BucketMetadata? metadata;
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
+/// Options for making a bucket private.
+@freezed
+abstract class MakeBucketPrivateOptions with _$MakeBucketPrivateOptions {
+  const factory MakeBucketPrivateOptions({
+    /// If `true`, also make all files in the bucket private.
+    bool? includeFiles,
 
-  const MakeBucketPrivateOptions({
-    this.includeFiles,
-    this.force,
-    this.metadata,
-    this.userProject,
-    this.preconditionOpts,
-  });
+    /// If `true`, proceed even if the bucket is already private.
+    bool? force,
+
+    /// Metadata to update on the bucket.
+    BucketMetadata? metadata,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Precondition options for the operation.
+    PreconditionOptions? preconditionOpts,
+  }) = _MakeBucketPrivateOptions;
 }
 
-class MakeAllFilesPublicPrivateOptions {
-  final bool? force;
-  final bool? private;
-  final bool? public;
-  final String? userProject;
+/// Options for making all files in a bucket public or private.
+@freezed
+abstract class MakeAllFilesPublicPrivateOptions
+    with _$MakeAllFilesPublicPrivateOptions {
+  const factory MakeAllFilesPublicPrivateOptions({
+    /// If `true`, proceed even if files already have the desired visibility.
+    bool? force,
 
-  const MakeAllFilesPublicPrivateOptions._({
-    this.force,
-    this.private,
-    this.public,
-    this.userProject,
-  });
+    /// If `true`, make all files private.
+    bool? private,
+
+    /// If `true`, make all files public.
+    bool? public,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _MakeAllFilesPublicPrivateOptions;
 }
 
-class EnableLoggingOptions extends PreconditionOptions {
-  final String prefix;
-  final Bucket? bucket;
+/// Options for enabling access logging on a bucket.
+@freezed
+abstract class EnableLoggingOptions with _$EnableLoggingOptions {
+  const factory EnableLoggingOptions({
+    /// The prefix for log object names.
+    ///
+    /// Log objects will be created with names starting with this prefix.
+    required String prefix,
 
-  const EnableLoggingOptions({required this.prefix, this.bucket});
+    /// The destination bucket where access logs will be stored.
+    Bucket? bucket,
+
+    /// Only perform the operation if the bucket's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the bucket's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the bucket's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the bucket's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _EnableLoggingOptions;
 }
 
 /// Options for uploading a file from the filesystem.
-class UploadOptions {
+@freezed
+abstract class UploadOptions with _$UploadOptions {
   /// The place to save your file. If given a String, the file will be uploaded to the bucket
   /// using the string as a filename. When given a File object, your local file will be uploaded
   /// to the File object's bucket and under the File object's name. If omitted, the file is uploaded
   /// to your bucket using the name of the local file.
-  final Object? destination; // String or File
+  const factory UploadOptions({
+    Object? destination, // String or File
+    /// A custom encryption key. See Customer-supplied Encryption Keys.
+    EncryptionKey? encryptionKey,
 
-  /// A custom encryption key. See Customer-supplied Encryption Keys.
-  final EncryptionKey? encryptionKey;
+    /// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
+    /// If null, the contentType is used to determine if the file should be gzipped (auto-detect).
+    bool? gzip,
 
-  /// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
-  /// If null, the contentType is used to determine if the file should be gzipped (auto-detect).
-  final bool? gzip;
+    /// The name of the Cloud KMS key that will be used to encrypt the object.
+    String? kmsKeyName,
 
-  /// The name of the Cloud KMS key that will be used to encrypt the object.
-  final String? kmsKeyName;
+    /// Metadata for the file. See Objects: insert request body for details.
+    FileMetadata? metadata,
 
-  /// Metadata for the file. See Objects: insert request body for details.
-  final FileMetadata? metadata;
+    /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
+    int? offset,
 
-  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
-  final int? offset;
+    /// Apply a predefined set of access controls to this object.
+    PredefinedAcl? predefinedAcl,
 
-  /// Apply a predefined set of access controls to this object.
-  final PredefinedAcl? predefinedAcl;
+    /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
+    bool? private,
 
-  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
-  final bool? private;
+    /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
+    bool? public,
 
-  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
-  final bool? public;
+    /// Resumable uploads are automatically enabled and must be shut off explicitly by setting to false.
+    bool? resumable,
 
-  /// Resumable uploads are automatically enabled and must be shut off explicitly by setting to false.
-  final bool? resumable;
+    /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
+    int? timeout,
 
-  /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
-  final int? timeout;
+    /// The URI for an already-created resumable upload. See File.createResumableUpload().
+    String? uri,
 
-  /// The URI for an already-created resumable upload. See File.createResumableUpload().
-  final String? uri;
-
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
-
-  /// Validation type for data integrity checks. By default, data integrity is validated with an MD5 checksum.
-  final ValidationType? validation;
-
-  /// Precondition options for the upload.
-  final PreconditionOptions? preconditionOpts;
-
-  /// Callback for upload progress events.
-  final void Function(UploadProgress)? onUploadProgress;
-
-  /// Chunk size for resumable uploads. Default: 256KB
-  final int? chunkSize;
-
-  /// High water mark for the stream. Controls buffer size.
-  final int? highWaterMark;
-
-  /// Whether this is a partial upload.
-  final bool? isPartialUpload;
-
-  const UploadOptions({
-    this.destination,
-    this.encryptionKey,
-    this.gzip,
-    this.kmsKeyName,
-    this.metadata,
-    this.offset,
-    this.predefinedAcl,
-    this.private,
-    this.public,
-    this.resumable,
-    this.timeout,
-    this.uri,
-    this.userProject,
-    this.validation,
-    this.preconditionOpts,
-    this.onUploadProgress,
-    this.chunkSize,
-    this.highWaterMark,
-    this.isPartialUpload,
-  });
-}
-
-class GetBucketsOptions {
-  final bool? autoPaginate;
-  final String? projectId;
-  final int? maxApiCalls;
-  final int? maxResults;
-  final String? pageToken;
-  final String? prefix;
-  final Projection? projection;
-  final bool? softDeleted;
-  final String? userProject;
-
-  const GetBucketsOptions({
-    this.autoPaginate = true,
-    this.projectId,
-    this.maxApiCalls,
-    this.maxResults,
-    this.pageToken,
-    this.prefix,
-    this.projection,
-    this.softDeleted,
-    this.userProject,
-  });
-
-  GetBucketsOptions copyWith({
-    bool? autoPaginate,
-    String? projectId,
-    int? maxApiCalls,
-    int? maxResults,
-    String? pageToken,
-    String? prefix,
-    Projection? projection,
-    bool? softDeleted,
+    /// The ID of the project which will be billed for the request.
     String? userProject,
-  }) {
-    return GetBucketsOptions(
-      autoPaginate: autoPaginate ?? this.autoPaginate,
-      projectId: projectId ?? this.projectId,
-      maxApiCalls: maxApiCalls ?? this.maxApiCalls,
-      maxResults: maxResults ?? this.maxResults,
-      pageToken: pageToken ?? this.pageToken,
-      prefix: prefix ?? this.prefix,
-      projection: projection ?? this.projection,
-      softDeleted: softDeleted ?? this.softDeleted,
-      userProject: userProject ?? this.userProject,
-    );
-  }
+
+    /// Validation type for data integrity checks. By default, data integrity is validated with an MD5 checksum.
+    ValidationType? validation,
+
+    /// Precondition options for the upload.
+    PreconditionOptions? preconditionOpts,
+
+    /// Callback for upload progress events.
+    void Function(UploadProgress)? onUploadProgress,
+
+    /// Chunk size for resumable uploads. Default: 256KB
+    int? chunkSize,
+
+    /// High water mark for the stream. Controls buffer size.
+    int? highWaterMark,
+
+    /// Whether this is a partial upload.
+    bool? isPartialUpload,
+  }) = _UploadOptions;
 }
 
-class AddLifecycleRuleOptions extends PreconditionOptions {
-  final bool append;
+/// Options for listing buckets.
+@freezed
+abstract class GetBucketsOptions with _$GetBucketsOptions {
+  const factory GetBucketsOptions({
+    /// Automatically paginate through all results. Defaults to `true`.
+    @Default(true) bool? autoPaginate,
 
-  const AddLifecycleRuleOptions({
-    this.append = true,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+    /// The project ID to list buckets for. If not provided, uses the default project.
+    String? projectId,
+
+    /// Maximum number of API calls to make. Only used if `autoPaginate` is `true`.
+    int? maxApiCalls,
+
+    /// Maximum number of results to return per page.
+    int? maxResults,
+
+    /// Token for the next page of results.
+    String? pageToken,
+
+    /// Filter results to buckets whose names begin with this prefix.
+    String? prefix,
+
+    /// The set of properties to return in the response.
+    Projection? projection,
+
+    /// If `true`, include soft-deleted buckets in the results.
+    bool? softDeleted,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _GetBucketsOptions;
 }
 
-class CombineOptions extends PreconditionOptions {
-  final String? kmsKeyName;
-  final String? userProject;
+/// Options for adding a lifecycle rule to a bucket.
+@freezed
+abstract class AddLifecycleRuleOptions with _$AddLifecycleRuleOptions {
+  const factory AddLifecycleRuleOptions({
+    /// If `true`, append the rule to existing rules. If `false`, replace all rules.
+    ///
+    /// Defaults to `true`.
+    @Default(true) bool append,
 
-  const CombineOptions({
-    this.kmsKeyName,
-    this.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+    /// Only perform the operation if the bucket's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the bucket's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+
+    /// Only perform the operation if the bucket's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the bucket's generation does not match this value.
+    int? ifGenerationNotMatch,
+  }) = _AddLifecycleRuleOptions;
 }
 
-class SetBucketMetadataOptions extends PreconditionOptions {
-  final String? userProject;
-  final PredefinedAcl? predefinedAcl;
-  const SetBucketMetadataOptions({
-    this.userProject,
-    this.predefinedAcl,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+/// Options for combining files, mirroring Node's CombineOptions.
+///
+/// Extends [PreconditionOptions] to include combine-specific options.
+///
+/// See [File.combine] for usage.
+@freezed
+abstract class CombineOptions extends PreconditionOptions
+    with _$CombineOptions {
+  const CombineOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
+
+  const factory CombineOptions({
+    /// The name of the Cloud KMS key that will be used to encrypt the combined object.
+    String? kmsKeyName,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Only perform the operation if the destination object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the destination object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the destination object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the destination object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _CombineOptions;
 }
 
+/// Options for setting bucket metadata, mirroring Node's SetBucketMetadataOptions.
+///
+/// Extends [PreconditionOptions] to include metadata-specific options.
+@freezed
+abstract class SetBucketMetadataOptions extends PreconditionOptions
+    with _$SetBucketMetadataOptions {
+  const SetBucketMetadataOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
+
+  const factory SetBucketMetadataOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Apply a predefined set of access controls to the bucket.
+    PredefinedAcl? predefinedAcl,
+
+    /// Only perform the operation if the bucket's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the bucket's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the bucket's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the bucket's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _SetBucketMetadataOptions;
+}
+
+/// Predefined access control lists for buckets and objects.
 enum PredefinedAcl {
+  /// All authenticated Google account holders have read access.
   authenticatedRead('authenticatedRead'),
+
+  /// Only the owner has access. This is the default for new buckets and objects.
   private('private'),
+
+  /// Project team members have access according to their roles.
   projectPrivate('projectPrivate'),
+
+  /// All users have read access.
   publicRead('publicRead'),
+
+  /// All users have read and write access.
   publicReadWrite('publicReadWrite');
 
   /// The string value expected by the Google Cloud Storage API.
@@ -349,698 +556,905 @@ enum PredefinedAcl {
   const PredefinedAcl(this.value);
 }
 
+/// Predefined access control lists for default object ACLs.
 enum PredefinedDefaultObjectAcl {
+  /// All authenticated Google account holders have read access.
   authenticatedRead,
+
+  /// The bucket owner has full control.
   bucketOwnerFullControl,
+
+  /// The bucket owner has read access.
   bucketOwnerRead,
+
+  /// Only the owner has access.
   private,
+
+  /// Project team members have access according to their roles.
   projectPrivate,
+
+  /// All users have read access.
   publicRead,
 }
 
-enum Projection { full, noAcl }
+/// The set of properties to return in API responses.
+enum Projection {
+  /// Return all properties.
+  full,
 
-class GetBucketOptions {
-  /// Automatically create the bucket if it doesn't already exist.
-  final bool autoCreate;
-  final String? userProject;
-
-  const GetBucketOptions({this.autoCreate = false, this.userProject});
+  /// Return all properties except ACLs.
+  noAcl,
 }
 
-class GetBucketSignedUrlOptions {
-  final Uri? host; // inherited from SignedUrlConfig
-  final Uri? signingEndpoint; // inherited from SignedUrlConfig
+/// Options for getting a bucket.
+@freezed
+abstract class GetBucketOptions with _$GetBucketOptions {
+  const factory GetBucketOptions({
+    /// Automatically create the bucket if it doesn't already exist.
+    ///
+    /// Defaults to `false`.
+    @Default(false) bool autoCreate,
 
-  final String action;
-  final SignedUrlVersion? version;
-  final String? cname;
-  final bool? virtualHostedStyle;
-  final DateTime expires;
-  final Map<String, String>? extensionHeaders;
-  final Map<String, String>? queryParams;
-
-  const GetBucketSignedUrlOptions({
-    this.host,
-    this.signingEndpoint,
-    this.action = 'list',
-    this.version,
-    this.cname,
-    this.virtualHostedStyle = false,
-    required this.expires,
-    this.extensionHeaders,
-    this.queryParams,
-  });
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _GetBucketOptions;
 }
 
-class CreateNotificationOptions {
+/// Options for generating a signed URL for bucket operations.
+@freezed
+abstract class GetBucketSignedUrlOptions with _$GetBucketSignedUrlOptions {
+  const factory GetBucketSignedUrlOptions({
+    /// Custom host for the signed URL. Inherited from [SignedUrlConfig].
+    Uri? host,
+
+    /// Custom signing endpoint. Inherited from [SignedUrlConfig].
+    Uri? signingEndpoint,
+
+    /// The action to perform. Defaults to `'list'`.
+    @Default('list') String action,
+
+    /// The version of the signing algorithm to use.
+    SignedUrlVersion? version,
+
+    /// Custom domain name for the signed URL.
+    String? cname,
+
+    /// Use virtual-hosted-style URLs. Defaults to `false`.
+    @Default(false) bool? virtualHostedStyle,
+
+    /// When the signed URL should expire.
+    required DateTime expires,
+
+    /// Additional headers to include in the signed URL.
+    Map<String, String>? extensionHeaders,
+
+    /// Additional query parameters to include in the signed URL.
+    Map<String, String>? queryParams,
+  }) = _GetBucketSignedUrlOptions;
+}
+
+@freezed
+abstract class CreateNotificationOptions with _$CreateNotificationOptions {
   /// An optional list of additional attributes to attach to each Cloud PubSub
   /// message published for this notification subscription.
-  final Map<String, String>? customAttributes;
+  const factory CreateNotificationOptions({
+    /// An optional list of additional attributes to attach to each Cloud PubSub
+    /// message published for this notification subscription.
+    Map<String, String>? customAttributes,
 
-  /// If present, only send notifications about listed event types.
-  /// If empty, send notifications for all event types.
-  final List<String>? eventTypes;
+    /// If present, only send notifications about listed event types.
+    /// If empty, send notifications for all event types.
+    List<String>? eventTypes,
 
-  /// If present, only apply this notification configuration to object names
-  /// that begin with this prefix.
-  final String? objectNamePrefix;
+    /// If present, only apply this notification configuration to object names
+    /// that begin with this prefix.
+    String? objectNamePrefix,
 
-  /// The desired content of the Payload. Defaults to `JSON_API_V1`.
-  ///
-  /// Acceptable values are:
-  /// - `JSON_API_V1`
-  /// - `NONE`
-  final String? payloadFormat;
+    /// The desired content of the Payload. Defaults to `JSON_API_V1`.
+    ///
+    /// Acceptable values are:
+    /// - `JSON_API_V1`
+    /// - `NONE`
+    String? payloadFormat,
 
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
-
-  const CreateNotificationOptions({
-    this.customAttributes,
-    this.eventTypes,
-    this.objectNamePrefix,
-    this.payloadFormat,
-    this.userProject,
-  });
-}
-
-class BucketOptions {
-  final Crc32Generator? crc32cGenerator;
-  final String? kmsKeyName;
-  final PreconditionOptions? preconditionOpts;
-  final String? userProject;
-  final int? generation;
-  final bool? softDeleted;
-
-  const BucketOptions({
-    this.crc32cGenerator,
-    this.kmsKeyName,
-    this.preconditionOpts,
-    this.userProject,
-    this.generation,
-    this.softDeleted,
-  });
-
-  BucketOptions copyWith({
-    Crc32Generator? crc32cGenerator,
-    String? kmsKeyName,
-    PreconditionOptions? preconditionOpts,
+    /// The ID of the project which will be billed for the request.
     String? userProject,
-    int? generation,
-    bool? softDeleted,
-  }) {
-    return BucketOptions(
-      crc32cGenerator: crc32cGenerator ?? this.crc32cGenerator,
-      kmsKeyName: kmsKeyName ?? this.kmsKeyName,
-      preconditionOpts: preconditionOpts ?? this.preconditionOpts,
-      userProject: userProject ?? this.userProject,
-      generation: generation ?? this.generation,
-      softDeleted: softDeleted ?? this.softDeleted,
-    );
-  }
+  }) = _CreateNotificationOptions;
 }
 
+/// Options for bucket operations.
+@freezed
+abstract class BucketOptions with _$BucketOptions {
+  const factory BucketOptions({
+    /// Custom CRC32C generator for validation.
+    Crc32Generator? crc32cGenerator,
+
+    /// The name of the Cloud KMS key that will be used to encrypt objects in this bucket.
+    String? kmsKeyName,
+
+    /// Precondition options for the operation.
+    PreconditionOptions? preconditionOpts,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// The generation of the bucket to operate on.
+    int? generation,
+
+    /// If `true`, operate on soft-deleted buckets.
+    bool? softDeleted,
+  }) = _BucketOptions;
+}
+
+/// Metadata for a bucket.
+///
+/// This is a type alias for the Google Cloud Storage API's Bucket resource.
 typedef BucketMetadata = storage_v1.Bucket;
+
+/// A lifecycle rule for a bucket.
+///
+/// Defines actions to take on objects based on their age or other conditions.
 typedef LifecycleRule = storage_v1.BucketLifecycleRule;
 
-abstract class WatchAllOptions {
-  final String? delimiter;
-  final int? maxResults;
-  final String? pageToken;
-  final String? prefix;
-  final String? projection;
-  final String? userProject;
-  final bool? versions;
+/// Options for watching bucket changes.
+@freezed
+abstract class WatchAllOptions with _$WatchAllOptions {
+  const factory WatchAllOptions({
+    /// Delimiter to use for grouping object names.
+    String? delimiter,
 
-  const WatchAllOptions({
-    this.delimiter,
-    this.maxResults,
-    this.pageToken,
-    this.prefix,
-    this.projection,
-    this.userProject,
-    this.versions,
-  });
+    /// Maximum number of results to return.
+    int? maxResults,
+
+    /// Token for the next page of results.
+    String? pageToken,
+
+    /// Filter results to objects whose names begin with this prefix.
+    String? prefix,
+
+    /// The set of properties to return in the response.
+    String? projection,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// If `true`, include object versions in the results.
+    bool? versions,
+  }) = _WatchAllOptions;
 }
 
-class CreateChannelConfig extends WatchAllOptions {
-  final String address;
+/// Configuration for creating a notification channel.
+@freezed
+abstract class CreateChannelConfig with _$CreateChannelConfig {
+  const factory CreateChannelConfig({
+    /// The address where notifications should be sent.
+    required String address,
 
-  const CreateChannelConfig({
-    required this.address,
-    super.delimiter,
-    super.maxResults,
-    super.pageToken,
-    super.prefix,
-    super.projection,
-    super.userProject,
-    super.versions,
-  });
+    /// Delimiter to use for grouping object names.
+    String? delimiter,
+
+    /// Maximum number of results to return.
+    int? maxResults,
+
+    /// Token for the next page of results.
+    String? pageToken,
+
+    /// Filter results to objects whose names begin with this prefix.
+    String? prefix,
+
+    /// The set of properties to return in the response.
+    String? projection,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// If `true`, include object versions in the results.
+    bool? versions,
+  }) = _CreateChannelConfig;
 }
 
-class CreateChannelOptions {
-  final String? userProject;
-
-  const CreateChannelOptions({this.userProject});
+/// Options for creating a notification channel.
+@freezed
+abstract class CreateChannelOptions with _$CreateChannelOptions {
+  const factory CreateChannelOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _CreateChannelOptions;
 }
 
+/// Metadata for a notification channel.
+///
+/// This is a type alias for the Google Cloud Storage API's Channel resource.
 typedef ChannelMetadata = storage_v1.Channel;
 
+/// Metadata for a file (object) in Google Cloud Storage.
+///
+/// This is a type alias for the Google Cloud Storage API's Object resource.
 typedef FileMetadata = storage_v1.Object;
 
-class FileOptions {
-  final Crc32Generator? crc32cGenerator;
-  final EncryptionKey? encryptionKey;
-  final int? generation;
-  final String? restoreToken;
-  final String? kmsKeyName;
-  final PreconditionOptions? preconditionOpts;
-  final String? userProject;
-
-  const FileOptions({
-    this.crc32cGenerator,
-    this.encryptionKey,
-    this.generation,
-    this.restoreToken,
-    this.kmsKeyName,
-    this.preconditionOpts,
-    this.userProject,
-  });
-
-  FileOptions copyWith({
+/// Options for file operations.
+@freezed
+abstract class FileOptions with _$FileOptions {
+  const factory FileOptions({
+    /// Custom CRC32C generator for validation.
     Crc32Generator? crc32cGenerator,
+
+    /// Customer-supplied encryption key.
     EncryptionKey? encryptionKey,
+
+    /// The generation of the file to operate on.
     int? generation,
+
+    /// Token for restoring a soft-deleted file.
     String? restoreToken,
+
+    /// The name of the Cloud KMS key that will be used to encrypt the file.
     String? kmsKeyName,
+
+    /// Precondition options for the operation.
     PreconditionOptions? preconditionOpts,
+
+    /// The ID of the project which will be billed for the request.
     String? userProject,
-  }) {
-    return FileOptions(
-      crc32cGenerator: crc32cGenerator ?? this.crc32cGenerator,
-      encryptionKey: encryptionKey ?? this.encryptionKey,
-      generation: generation ?? this.generation,
-      restoreToken: restoreToken ?? this.restoreToken,
-      kmsKeyName: kmsKeyName ?? this.kmsKeyName,
-      preconditionOpts: preconditionOpts ?? this.preconditionOpts,
-      userProject: userProject ?? this.userProject,
-    );
-  }
+  }) = _FileOptions;
 }
 
-class GetFilesOptions {
-  final bool? autoPaginate;
-  final String? delimiter;
-  final String? endOffset;
-  final bool? includeFoldersAsPrefixes;
-  final bool? includeTrailingDelimiter;
-  final String? prefix;
-  final String? matchGlob;
-  final int? maxApiCalls;
-  final int? maxResults;
-  final String? pageToken;
-  final bool? softDeleted;
-  final String? startOffset;
-  final String? userProject;
-  final bool? versions;
-  final String? fields;
+/// Options for getting files, mirroring Node's GetFilesOptions.
+///
+/// Extends [PreconditionOptions] to include file listing options.
+@freezed
+abstract class GetFilesOptions extends PreconditionOptions
+    with _$GetFilesOptions {
+  const GetFilesOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
 
-  const GetFilesOptions({
-    this.autoPaginate = true,
-    this.delimiter,
-    this.endOffset,
-    this.includeFoldersAsPrefixes,
-    this.includeTrailingDelimiter,
-    this.prefix,
-    this.matchGlob,
-    this.maxApiCalls,
-    this.maxResults,
-    this.pageToken,
-    this.softDeleted,
-    this.startOffset,
-    this.userProject,
-    this.versions,
-    this.fields,
-  });
+  const factory GetFilesOptions({
+    /// Automatically paginate through all results. Defaults to `true`.
+    @Default(true) bool? autoPaginate,
 
-  GetFilesOptions copyWith({
-    bool? autoPaginate,
+    /// Delimiter to use for grouping object names.
     String? delimiter,
+
+    /// End offset for listing objects.
     String? endOffset,
+
+    /// If `true`, include folders as prefixes in the results.
     bool? includeFoldersAsPrefixes,
+
+    /// If `true`, include trailing delimiter in prefix results.
     bool? includeTrailingDelimiter,
+
+    /// Filter results to objects whose names begin with this prefix.
     String? prefix,
+
+    /// Glob pattern to match object names.
     String? matchGlob,
+
+    /// Maximum number of API calls to make. Only used if `autoPaginate` is `true`.
     int? maxApiCalls,
+
+    /// Maximum number of results to return per page.
     int? maxResults,
+
+    /// Token for the next page of results.
     String? pageToken,
+
+    /// If `true`, include soft-deleted objects in the results.
     bool? softDeleted,
+
+    /// Start offset for listing objects.
     String? startOffset,
+
+    /// The ID of the project which will be billed for the request.
     String? userProject,
+
+    /// If `true`, include object versions in the results.
     bool? versions,
+
+    /// Comma-separated list of fields to return in the response.
     String? fields,
-  }) {
-    return GetFilesOptions(
-      autoPaginate: autoPaginate ?? this.autoPaginate,
-      delimiter: delimiter ?? this.delimiter,
-      endOffset: endOffset ?? this.endOffset,
-      includeFoldersAsPrefixes:
-          includeFoldersAsPrefixes ?? this.includeFoldersAsPrefixes,
-      includeTrailingDelimiter:
-          includeTrailingDelimiter ?? this.includeTrailingDelimiter,
-      prefix: prefix ?? this.prefix,
-      matchGlob: matchGlob ?? this.matchGlob,
-      maxApiCalls: maxApiCalls ?? this.maxApiCalls,
-      maxResults: maxResults ?? this.maxResults,
-      pageToken: pageToken ?? this.pageToken,
-      softDeleted: softDeleted ?? this.softDeleted,
-      startOffset: startOffset ?? this.startOffset,
-      userProject: userProject ?? this.userProject,
-      versions: versions ?? this.versions,
-      fields: fields ?? this.fields,
-    );
-  }
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _GetFilesOptions;
 }
 
-class DeleteFileOptions extends GetFilesOptions {
-  final bool? force;
-  // PreconditionOptions fields
-  final int? ifGenerationMatch;
-  final int? ifGenerationNotMatch;
-  final int? ifMetagenerationMatch;
-  final int? ifMetagenerationNotMatch;
+/// Options for deleting files, mirroring Node's DeleteFilesOptions.
+///
+/// Extends [GetFilesOptions] (which extends [PreconditionOptions]) to include delete-specific options.
+@freezed
+abstract class DeleteFileOptions extends GetFilesOptions
+    with _$DeleteFileOptions {
+  const DeleteFileOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super._(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
 
-  const DeleteFileOptions({
-    this.force,
-    // GetFilesOptions fields
-    super.autoPaginate,
-    super.delimiter,
-    super.endOffset,
-    super.includeFoldersAsPrefixes,
-    super.includeTrailingDelimiter,
-    super.prefix,
-    super.matchGlob,
-    super.maxApiCalls,
-    super.maxResults,
-    super.pageToken,
-    super.softDeleted,
-    super.startOffset,
-    super.userProject,
-    super.versions,
-    super.fields,
-    // PreconditionOptions fields
-    this.ifGenerationMatch,
-    this.ifGenerationNotMatch,
-    this.ifMetagenerationMatch,
-    this.ifMetagenerationNotMatch,
-  });
+  const factory DeleteFileOptions({
+    /// If `true`, force deletion even if there are errors.
+    bool? force,
+
+    /// Automatically paginate through all results. Defaults to `true`.
+    @Default(true) bool? autoPaginate,
+
+    /// Delimiter to use for grouping object names.
+    String? delimiter,
+
+    /// End offset for listing objects.
+    String? endOffset,
+
+    /// If `true`, include folders as prefixes in the results.
+    bool? includeFoldersAsPrefixes,
+
+    /// If `true`, include trailing delimiter in prefix results.
+    bool? includeTrailingDelimiter,
+
+    /// Filter results to objects whose names begin with this prefix.
+    String? prefix,
+
+    /// Glob pattern to match object names.
+    String? matchGlob,
+
+    /// Maximum number of API calls to make. Only used if `autoPaginate` is `true`.
+    int? maxApiCalls,
+
+    /// Maximum number of results to return per page.
+    int? maxResults,
+
+    /// Token for the next page of results.
+    String? pageToken,
+
+    /// If `true`, include soft-deleted objects in the results.
+    bool? softDeleted,
+
+    /// Start offset for listing objects.
+    String? startOffset,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// If `true`, include object versions in the results.
+    bool? versions,
+
+    /// Comma-separated list of fields to return in the response.
+    String? fields,
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _DeleteFileOptions;
 }
 
-class GetFileMetadataOptions {
-  final String? userProject;
-
-  const GetFileMetadataOptions({this.userProject});
+/// Options for getting file metadata.
+@freezed
+abstract class GetFileMetadataOptions with _$GetFileMetadataOptions {
+  const factory GetFileMetadataOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _GetFileMetadataOptions;
 }
 
-class SetFileMetadataOptions extends PreconditionOptions {
-  final String? userProject;
+/// Options for setting file metadata, mirroring Node's SetFileMetadataOptions.
+///
+/// Extends [PreconditionOptions] to include metadata-specific options.
+@freezed
+abstract class SetFileMetadataOptions extends PreconditionOptions
+    with _$SetFileMetadataOptions {
+  const SetFileMetadataOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
 
-  const SetFileMetadataOptions({
-    this.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+  const factory SetFileMetadataOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _SetFileMetadataOptions;
 }
 
-class CopyOptions {
-  final String? cacheControl;
-  final String? contentEncoding;
-  final String? contentType;
-  final String? contentDisposition;
-  final String? destinationKmsKeyName;
-  final Map<String, String>? metadata;
-  final PredefinedAcl? predefinedAcl;
-  final String? token;
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
+/// Options for copying a file.
+@freezed
+abstract class CopyOptions with _$CopyOptions {
+  const factory CopyOptions({
+    /// Cache-Control header value for the destination file.
+    String? cacheControl,
 
-  const CopyOptions({
-    this.cacheControl,
-    this.contentEncoding,
-    this.contentType,
-    this.contentDisposition,
-    this.destinationKmsKeyName,
-    this.metadata,
-    this.predefinedAcl,
-    this.token,
-    this.userProject,
-    this.preconditionOpts,
-  });
+    /// Content-Encoding header value for the destination file.
+    String? contentEncoding,
+
+    /// Content-Type header value for the destination file.
+    String? contentType,
+
+    /// Content-Disposition header value for the destination file.
+    String? contentDisposition,
+
+    /// The name of the Cloud KMS key that will be used to encrypt the destination file.
+    String? destinationKmsKeyName,
+
+    /// Custom metadata to set on the destination file.
+    Map<String, String>? metadata,
+
+    /// Apply a predefined set of access controls to the destination file.
+    PredefinedAcl? predefinedAcl,
+
+    /// Token for resuming a copy operation.
+    String? token,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Precondition options for the copy operation.
+    PreconditionOptions? preconditionOpts,
+  }) = _CopyOptions;
 }
 
-class MoveOptions {
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
+/// Options for moving a file.
+@freezed
+abstract class MoveOptions with _$MoveOptions {
+  const factory MoveOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  const MoveOptions({this.userProject, this.preconditionOpts});
+    /// Precondition options for the move operation.
+    PreconditionOptions? preconditionOpts,
+  }) = _MoveOptions;
 }
 
-class RotateEncryptionKeyOptions {
+@freezed
+abstract class RotateEncryptionKeyOptions with _$RotateEncryptionKeyOptions {
   /// Customer-supplied encryption key.
-  final EncryptionKey? encryptionKey;
+  const factory RotateEncryptionKeyOptions({
+    /// Customer-supplied encryption key.
+    EncryptionKey? encryptionKey,
 
-  /// The name of the Cloud KMS key that will be used to encrypt the object.
-  final String? kmsKeyName;
+    /// The name of the Cloud KMS key that will be used to encrypt the object.
+    String? kmsKeyName,
 
-  /// Precondition options for the copy operation.
-  final PreconditionOptions? preconditionOpts;
-
-  const RotateEncryptionKeyOptions({
-    this.encryptionKey,
-    this.kmsKeyName,
-    this.preconditionOpts,
-  });
+    /// Precondition options for the copy operation.
+    PreconditionOptions? preconditionOpts,
+  }) = _RotateEncryptionKeyOptions;
 }
 
-class MakeFilePrivateOptions {
-  final FileMetadata? metadata;
-  final bool? strict;
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
+/// Options for making a file private.
+@freezed
+abstract class MakeFilePrivateOptions with _$MakeFilePrivateOptions {
+  const factory MakeFilePrivateOptions({
+    /// Metadata to update on the file.
+    FileMetadata? metadata,
 
-  const MakeFilePrivateOptions({
-    this.metadata,
-    this.strict,
-    this.userProject,
-    this.preconditionOpts,
-  });
+    /// If `true`, throw an error if the file is already private.
+    bool? strict,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Precondition options for the operation.
+    PreconditionOptions? preconditionOpts,
+  }) = _MakeFilePrivateOptions;
 }
 
-class GetFileSignedUrlOptions {
-  final Uri? host; // inherited from SignedUrlConfig
-  final Uri? signingEndpoint; // inherited from SignedUrlConfig
+/// Options for generating a signed URL for file operations.
+@freezed
+abstract class GetFileSignedUrlOptions with _$GetFileSignedUrlOptions {
+  const factory GetFileSignedUrlOptions({
+    /// Custom host for the signed URL. Inherited from [SignedUrlConfig].
+    Uri? host,
 
-  final String action;
-  final SignedUrlVersion? version;
-  final String? cname;
-  final bool? virtualHostedStyle;
-  final DateTime expires;
-  final Map<String, String>? extensionHeaders;
-  final Map<String, String>? queryParams;
-  final String? contentMd5;
-  final String? contentType;
-  final String? promptSaveAs;
-  final String? responseDisposition;
-  final String? responseType;
-  final DateTime? accessibleAt;
+    /// Custom signing endpoint. Inherited from [SignedUrlConfig].
+    Uri? signingEndpoint,
 
-  const GetFileSignedUrlOptions({
-    this.host,
-    this.signingEndpoint,
-    required this.action,
-    this.version,
-    this.cname,
-    this.virtualHostedStyle = false,
-    required this.expires,
-    this.extensionHeaders,
-    this.queryParams,
-    this.contentMd5,
-    this.contentType,
-    this.promptSaveAs,
-    this.responseDisposition,
-    this.responseType,
-    this.accessibleAt,
-  });
+    /// The action to perform: 'read', 'write', 'delete', or 'resumable'.
+    required String action,
+
+    /// The version of the signing algorithm to use.
+    SignedUrlVersion? version,
+
+    /// Custom domain name for the signed URL.
+    String? cname,
+
+    /// Use virtual-hosted-style URLs. Defaults to `false`.
+    @Default(false) bool? virtualHostedStyle,
+
+    /// When the signed URL should expire.
+    required DateTime expires,
+
+    /// Additional headers to include in the signed URL.
+    Map<String, String>? extensionHeaders,
+
+    /// Additional query parameters to include in the signed URL.
+    Map<String, String>? queryParams,
+
+    /// MD5 hash of the content (for PUT requests).
+    String? contentMd5,
+
+    /// Content-Type header value.
+    String? contentType,
+
+    /// Filename to suggest when downloading the file.
+    String? promptSaveAs,
+
+    /// Content-Disposition header value.
+    String? responseDisposition,
+
+    /// Content-Type for the response.
+    String? responseType,
+
+    /// When the signed URL becomes accessible (for v4 signing).
+    DateTime? accessibleAt,
+  }) = _GetFileSignedUrlOptions;
 }
 
-class SetFileStorageClassOptions extends SetFileMetadataOptions {
-  const SetFileStorageClassOptions({
-    super.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+/// Options for setting file storage class, mirroring Node's SetFileStorageClassOptions.
+///
+/// Extends [PreconditionOptions] to include storage class-specific options.
+@freezed
+abstract class SetFileStorageClassOptions extends PreconditionOptions
+    with _$SetFileStorageClassOptions {
+  const SetFileStorageClassOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
+
+  const factory SetFileStorageClassOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _SetFileStorageClassOptions;
 }
 
-class RestoreFileOptions extends PreconditionOptions {
-  final int generation;
-  final String? restoreToken;
-  final Projection? projection;
-  final String? userProject;
+/// Options for restoring a file, mirroring Node's RestoreFileOptions.
+///
+/// Extends [PreconditionOptions] to include restore-specific options.
+@freezed
+abstract class RestoreFileOptions extends PreconditionOptions
+    with _$RestoreFileOptions {
+  const RestoreFileOptions._({
+    int? ifGenerationMatch,
+    int? ifGenerationNotMatch,
+    int? ifMetagenerationMatch,
+    int? ifMetagenerationNotMatch,
+  }) : super(
+         ifGenerationMatch: ifGenerationMatch,
+         ifGenerationNotMatch: ifGenerationNotMatch,
+         ifMetagenerationMatch: ifMetagenerationMatch,
+         ifMetagenerationNotMatch: ifMetagenerationNotMatch,
+       );
 
-  const RestoreFileOptions({
-    required this.generation,
-    this.restoreToken,
-    this.projection,
-    this.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
+  const factory RestoreFileOptions({
+    /// The generation of the file to restore.
+    required int generation,
+
+    /// Token for restoring a soft-deleted file.
+    String? restoreToken,
+
+    /// The set of properties to return in the response.
+    Projection? projection,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Only perform the operation if the object's generation matches this value.
+    int? ifGenerationMatch,
+
+    /// Only perform the operation if the object's generation does not match this value.
+    int? ifGenerationNotMatch,
+
+    /// Only perform the operation if the object's metageneration matches this value.
+    int? ifMetagenerationMatch,
+
+    /// Only perform the operation if the object's metageneration does not match this value.
+    int? ifMetagenerationNotMatch,
+  }) = _RestoreFileOptions;
 }
 
-/// Validation type for data integrity checks during upload.
+/// Validation type for data integrity checks during upload and download.
 enum ValidationType {
   /// Validate using CRC32C checksum (default).
+  ///
+  /// CRC32C is recommended for Google Cloud Storage as it's faster and
+  /// more efficient than MD5.
   crc32c,
 
   /// Validate using MD5 checksum.
+  ///
+  /// MD5 is supported for compatibility but CRC32C is preferred.
   md5,
 
   /// Disable validation.
+  ///
+  /// Not recommended for production use as it skips data integrity verification.
   none,
 }
 
 /// Progress information for an upload operation.
-class UploadProgress {
+@freezed
+abstract class UploadProgress with _$UploadProgress {
   /// Number of bytes written so far.
-  final int bytesWritten;
+  const factory UploadProgress({
+    /// Number of bytes written so far.
+    required int bytesWritten,
 
-  /// Total number of bytes to upload, if known.
-  final int? totalBytes;
-
-  const UploadProgress._({required this.bytesWritten, this.totalBytes});
+    /// Total number of bytes to upload, if known.
+    int? totalBytes,
+  }) = _UploadProgress;
 }
 
 /// Options for creating a write stream to upload a file.
-class CreateWriteStreamOptions {
+@freezed
+abstract class CreateWriteStreamOptions with _$CreateWriteStreamOptions {
+  const CreateWriteStreamOptions._();
+
   /// Content type of the file. If set to 'auto', the file name is used to determine the contentType.
-  final String? contentType;
+  const factory CreateWriteStreamOptions({
+    /// Content type of the file. If set to 'auto', the file name is used to determine the contentType.
+    String? contentType,
 
-  /// If true, automatically gzip the file. If null, the contentType is used to determine if the file should be gzipped (auto-detect).
-  final bool? gzip;
+    /// If true, automatically gzip the file. If null, the contentType is used to determine if the file should be gzipped (auto-detect).
+    bool? gzip,
 
-  /// Metadata for the file. See Objects: insert request body for details.
-  final FileMetadata? metadata;
+    /// Metadata for the file. See Objects: insert request body for details.
+    FileMetadata? metadata,
 
-  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
-  final int? offset;
+    /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
+    int? offset,
 
-  /// Apply a predefined set of access controls to this object.
-  final PredefinedAcl? predefinedAcl;
+    /// Apply a predefined set of access controls to this object.
+    PredefinedAcl? predefinedAcl,
 
-  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
-  final bool? private;
+    /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
+    bool? private,
 
-  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
-  final bool? public;
+    /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
+    bool? public,
 
-  /// Force a resumable upload. Defaults to true.
-  final bool? resumable;
+    /// Force a resumable upload. Defaults to true.
+    bool? resumable,
 
-  /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
-  final int? timeout;
+    /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
+    int? timeout,
 
-  /// The URI for an already-created resumable upload. See File.createResumableUpload().
-  final String? uri;
+    /// The URI for an already-created resumable upload. See File.createResumableUpload().
+    String? uri,
 
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  /// Validation type for data integrity checks. By default, data integrity is validated with a CRC32c checksum.
-  final ValidationType? validation;
+    /// Validation type for data integrity checks. By default, data integrity is validated with a CRC32c checksum.
+    ValidationType? validation,
 
-  /// A CRC32C to resume from when continuing a previous upload.
-  final String? resumeCRC32C;
+    /// A CRC32C to resume from when continuing a previous upload.
+    String? resumeCRC32C,
 
-  /// Precondition options for the upload.
-  final PreconditionOptions? preconditionOpts;
+    /// Precondition options for the upload.
+    PreconditionOptions? preconditionOpts,
 
-  /// Chunk size for resumable uploads. Default: 256KB
-  final int? chunkSize;
+    /// Chunk size for resumable uploads. Default: 256KB
+    int? chunkSize,
 
-  /// High water mark for the stream. Controls buffer size.
-  final int? highWaterMark;
+    /// High water mark for the stream. Controls buffer size.
+    int? highWaterMark,
 
-  /// Whether this is a partial upload.
-  final bool? isPartialUpload;
+    /// Whether this is a partial upload.
+    bool? isPartialUpload,
 
-  /// Callback for upload progress events.
-  final void Function(UploadProgress)? onUploadProgress;
-
-  const CreateWriteStreamOptions({
-    this.contentType,
-    this.gzip,
-    this.metadata,
-    this.offset,
-    this.predefinedAcl,
-    this.private,
-    this.public,
-    this.resumable,
-    this.timeout,
-    this.uri,
-    this.userProject,
-    this.validation,
-    this.resumeCRC32C,
-    this.preconditionOpts,
-    this.chunkSize,
-    this.highWaterMark,
-    this.isPartialUpload,
-    this.onUploadProgress,
-  });
+    /// Callback for upload progress events.
+    void Function(UploadProgress)? onUploadProgress,
+  }) = _CreateWriteStreamOptions;
 }
 
-/// Options for saving data to a file.
-class SaveOptions extends CreateWriteStreamOptions {
-  /// Callback for upload progress events.
-  final void Function(UploadProgress)? onUploadProgress;
+/// Options for saving data to a file, mirroring Node's SaveOptions.
+///
+/// Extends [CreateWriteStreamOptions] to include save-specific options.
+@freezed
+abstract class SaveOptions extends CreateWriteStreamOptions with _$SaveOptions {
+  const SaveOptions._() : super._();
 
-  const SaveOptions({
-    super.contentType,
-    super.gzip,
-    super.metadata,
-    super.offset,
-    super.predefinedAcl,
-    super.private,
-    super.public,
-    super.resumable,
-    super.timeout,
-    super.uri,
-    super.userProject,
-    super.validation,
-    super.resumeCRC32C,
-    super.preconditionOpts,
-    super.chunkSize,
-    super.highWaterMark,
-    super.isPartialUpload,
-    this.onUploadProgress,
-  });
+  /// Options for saving data to a file.
+  const factory SaveOptions({
+    String? contentType,
+    bool? gzip,
+    FileMetadata? metadata,
+    int? offset,
+    PredefinedAcl? predefinedAcl,
+    bool? private,
+    bool? public,
+    bool? resumable,
+    int? timeout,
+    String? uri,
+    String? userProject,
+    ValidationType? validation,
+    String? resumeCRC32C,
+    PreconditionOptions? preconditionOpts,
+    int? chunkSize,
+    int? highWaterMark,
+    bool? isPartialUpload,
+
+    /// Callback for upload progress events.
+    void Function(UploadProgress)? onUploadProgress,
+  }) = _SaveOptions;
 }
 
 /// Options for creating a resumable upload URI.
-class CreateResumableUploadOptions {
-  /// Metadata for the file.
-  final FileMetadata? metadata;
+@freezed
+abstract class CreateResumableUploadOptions
+    with _$CreateResumableUploadOptions {
+  /// Options for creating a resumable upload URI.
+  const factory CreateResumableUploadOptions({
+    /// Metadata for the file.
+    FileMetadata? metadata,
 
-  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
-  final int? offset;
+    /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
+    int? offset,
 
-  /// Apply a predefined set of access controls to this object.
-  final PredefinedAcl? predefinedAcl;
+    /// Apply a predefined set of access controls to this object.
+    PredefinedAcl? predefinedAcl,
 
-  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
-  final bool? private;
+    /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
+    bool? private,
 
-  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
-  final bool? public;
+    /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
+    bool? public,
 
-  /// The URI for an already-created resumable upload.
-  final String? uri;
+    /// The URI for an already-created resumable upload.
+    String? uri,
 
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  /// Precondition options for the upload.
-  final PreconditionOptions? preconditionOpts;
+    /// Precondition options for the upload.
+    PreconditionOptions? preconditionOpts,
 
-  /// Chunk size for resumable uploads. Default: 256KB
-  final int? chunkSize;
+    /// Chunk size for resumable uploads. Default: 256KB
+    int? chunkSize,
 
-  /// High water mark for the stream. Controls buffer size.
-  final int? highWaterMark;
+    /// High water mark for the stream. Controls buffer size.
+    int? highWaterMark,
 
-  /// Whether this is a partial upload.
-  final bool? isPartialUpload;
-
-  const CreateResumableUploadOptions({
-    this.metadata,
-    this.offset,
-    this.predefinedAcl,
-    this.private,
-    this.public,
-    this.uri,
-    this.userProject,
-    this.preconditionOpts,
-    this.chunkSize,
-    this.highWaterMark,
-    this.isPartialUpload,
-  });
+    /// Whether this is a partial upload.
+    bool? isPartialUpload,
+  }) = _CreateResumableUploadOptions;
 }
 
 /// Options for creating a readable stream to download a file.
-class CreateReadStreamOptions {
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
+@freezed
+abstract class CreateReadStreamOptions with _$CreateReadStreamOptions {
+  /// Options for creating a readable stream to download a file.
+  const factory CreateReadStreamOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  /// Data integrity validation type.
-  final ValidationType? validation;
+    /// Data integrity validation type.
+    ValidationType? validation,
 
-  /// Start byte for range requests.
-  final int? start;
+    /// Start byte for range requests.
+    int? start,
 
-  /// End byte for range requests. Negative values indicate tail requests.
-  final int? end;
+    /// End byte for range requests. Negative values indicate tail requests.
+    int? end,
 
-  /// Whether to decompress gzip content. Defaults to true.
-  final bool? decompress;
-
-  const CreateReadStreamOptions({
-    this.userProject,
-    this.validation,
-    this.start,
-    this.end,
-    this.decompress,
-  });
+    /// Whether to decompress gzip content. Defaults to true.
+    bool? decompress,
+  }) = _CreateReadStreamOptions;
 }
 
 /// Options for downloading a file.
-class DownloadOptions extends CreateReadStreamOptions {
-  /// Local file to write the downloaded content to.
-  final io.File? destination;
+@freezed
+abstract class DownloadOptions with _$DownloadOptions {
+  /// Options for downloading a file.
+  const factory DownloadOptions({
+    /// Local file to write the downloaded content to.
+    io.File? destination,
 
-  /// Customer-supplied encryption key.
-  final EncryptionKey? encryptionKey;
-
-  const DownloadOptions({
-    this.destination,
-    this.encryptionKey,
-    super.userProject,
-    super.validation,
-    super.start,
-    super.end,
-    super.decompress,
-  });
+    /// Customer-supplied encryption key.
+    EncryptionKey? encryptionKey,
+    // CreateReadStreamOptions fields
+    String? userProject,
+    ValidationType? validation,
+    int? start,
+    int? end,
+    bool? decompress,
+  }) = _DownloadOptions;
 }
 
 /// Type alias for data that can be saved to a file.
-typedef SaveData = Object; // String, Uint8List, List<int>, or Stream<List<int>>
+///
+/// Can be:
+/// - `String` - Text data
+/// - `Uint8List` - Binary data
+/// - `List<int>` - Byte data
+/// - `Stream<List<int>>` - Streaming data
+typedef SaveData = Object;
 
-class EncryptionKey {
-  final String keyBase64;
-  final String keyHash;
+/// Customer-supplied encryption key for encrypting and decrypting objects.
+///
+/// See [Customer-supplied Encryption Keys](https://cloud.google.com/storage/docs/encryption/customer-supplied-keys)
+/// for more information.
+@freezed
+abstract class EncryptionKey with _$EncryptionKey {
+  const factory EncryptionKey({
+    /// The encryption key encoded as base64.
+    required String keyBase64,
 
-  const EncryptionKey._(this.keyBase64, this.keyHash);
+    /// The SHA256 hash of the key, encoded as base64.
+    required String keyHash,
+  }) = _EncryptionKey;
 
-  /// Creates an EncryptionKey from a string.
+  /// Creates an [EncryptionKey] from a string.
   ///
   /// The string is converted to base64, and then a SHA256 hash is computed
   /// by decoding the base64 string back to bytes and hashing those bytes.
   /// The hash is then encoded as base64.
+  ///
+  /// This matches the Node.js SDK's behavior for creating encryption keys.
   factory EncryptionKey.fromString(String key) {
     // Convert string to bytes, then to base64
     // This mimics: Buffer.from(encryptionKey as string).toString('base64')
@@ -1053,272 +1467,372 @@ class EncryptionKey {
     final hash = crypto.sha256.convert(decodedBase64);
     final keyHash = base64.encode(hash.bytes);
 
-    return EncryptionKey._(keyBase64, keyHash);
+    return EncryptionKey(keyBase64: keyBase64, keyHash: keyHash);
   }
 
-  /// Creates an EncryptionKey from a buffer (List<int>).
+  /// Creates an [EncryptionKey] from a buffer (List<int>).
   ///
   /// The buffer is converted to base64, and then a SHA256 hash is computed
   /// by decoding the base64 string back to bytes and hashing those bytes.
   /// The hash is then encoded as base64.
+  ///
+  /// This matches the Node.js SDK's behavior for creating encryption keys.
   factory EncryptionKey.fromBuffer(List<int> buffer) {
     return EncryptionKey.fromString(base64.encode(buffer));
   }
 }
 
 /// Options when constructing an [HmacKey] handle.
-class HmacKeyOptions {
-  final String? projectId;
-
-  const HmacKeyOptions({this.projectId});
-}
-
-class CreateHmacKeyOptions {
-  final String? projectId;
-  final String? userProject;
-
-  const CreateHmacKeyOptions({this.projectId, this.userProject});
-}
-
-class GetHmacKeysOptions {
-  final bool? autoPaginate;
-  final String? projectId;
-  final String? serviceAccountEmail;
-  final bool? showDeletedKeys;
-  final int? maxApiCalls;
-  final int? maxResults;
-  final String? pageToken;
-  final String? userProject;
-
-  const GetHmacKeysOptions({
-    this.autoPaginate = true,
-    this.projectId,
-    this.userProject,
-    this.serviceAccountEmail,
-    this.showDeletedKeys,
-    this.maxApiCalls,
-    this.maxResults,
-    this.pageToken,
-  });
-
-  GetHmacKeysOptions copyWith({
-    bool? autoPaginate,
+/// Options when constructing an HMAC key handle.
+@freezed
+abstract class HmacKeyOptions with _$HmacKeyOptions {
+  const factory HmacKeyOptions({
+    /// The project ID. If not provided, uses the default project.
     String? projectId,
-    String? serviceAccountEmail,
-    bool? showDeletedKeys,
-    int? maxApiCalls,
-    int? maxResults,
-    String? pageToken,
-    String? userProject,
-  }) {
-    return GetHmacKeysOptions(
-      autoPaginate: autoPaginate ?? this.autoPaginate,
-      projectId: projectId ?? this.projectId,
-      serviceAccountEmail: serviceAccountEmail ?? this.serviceAccountEmail,
-      showDeletedKeys: showDeletedKeys ?? this.showDeletedKeys,
-      maxApiCalls: maxApiCalls ?? this.maxApiCalls,
-      maxResults: maxResults ?? this.maxResults,
-      pageToken: pageToken ?? this.pageToken,
-      userProject: userProject ?? this.userProject,
-    );
-  }
+  }) = _HmacKeyOptions;
 }
 
+/// Options for creating an HMAC key.
+@freezed
+abstract class CreateHmacKeyOptions with _$CreateHmacKeyOptions {
+  const factory CreateHmacKeyOptions({
+    /// The project ID. If not provided, uses the default project.
+    String? projectId,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _CreateHmacKeyOptions;
+}
+
+/// Options for listing HMAC keys.
+@freezed
+abstract class GetHmacKeysOptions with _$GetHmacKeysOptions {
+  const factory GetHmacKeysOptions({
+    /// Automatically paginate through all results. Defaults to `true`.
+    @Default(true) bool? autoPaginate,
+
+    /// The project ID. If not provided, uses the default project.
+    String? projectId,
+
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+
+    /// Filter results to keys for this service account email.
+    String? serviceAccountEmail,
+
+    /// If `true`, include deleted keys in the results.
+    bool? showDeletedKeys,
+
+    /// Maximum number of API calls to make. Only used if `autoPaginate` is `true`.
+    int? maxApiCalls,
+
+    /// Maximum number of results to return per page.
+    int? maxResults,
+
+    /// Token for the next page of results.
+    String? pageToken,
+  }) = _GetHmacKeysOptions;
+}
+
+/// State of an HMAC key.
 enum HmacKeyState {
+  /// The key is active and can be used for signing requests.
   active('ACTIVE'),
+
+  /// The key is inactive and cannot be used for signing requests.
   inactive('INACTIVE'),
+
+  /// The key has been deleted.
   deleted('DELETED');
 
+  /// The string value expected by the Google Cloud Storage API.
   final String value;
+
   const HmacKeyState(this.value);
 }
 
 /// Subset of HMAC metadata that can be updated, mirroring Node's
 /// SetHmacKeyMetadata.
+///
+/// This class represents the fields that can be updated on an HMAC key.
 class SetHmacKeyMetadata extends storage_v1.HmacKeyMetadata {
-  /// New state: 'ACTIVE' or 'INACTIVE'.
+  /// Creates a new [SetHmacKeyMetadata] instance.
+  ///
+  /// [state] must be either [HmacKeyState.active] or [HmacKeyState.inactive].
   SetHmacKeyMetadata({HmacKeyState? state, super.etag})
     : super(state: state?.value);
 }
 
+/// Metadata for an HMAC key.
+///
+/// This is a type alias for the Google Cloud Storage API's HmacKeyMetadata resource.
 typedef HmacKeyMetadata = storage_v1.HmacKeyMetadata;
 
-class GetPolicyOptions {
-  final String? userProject;
-  final int? requestedPolicyVersion;
+/// Options for getting an IAM policy.
+@freezed
+abstract class GetPolicyOptions with _$GetPolicyOptions {
+  const factory GetPolicyOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
 
-  const GetPolicyOptions({this.userProject, this.requestedPolicyVersion});
+    /// The version of the policy to retrieve.
+    int? requestedPolicyVersion,
+  }) = _GetPolicyOptions;
 }
 
-class SetPolicyOptions {
-  final String? userProject;
-
-  const SetPolicyOptions({this.userProject});
+/// Options for setting an IAM policy.
+@freezed
+abstract class SetPolicyOptions with _$SetPolicyOptions {
+  const factory SetPolicyOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _SetPolicyOptions;
 }
 
-class TestIamPermissionsOptions {
-  final String? userProject;
-
-  const TestIamPermissionsOptions({this.userProject});
+/// Options for testing IAM permissions.
+@freezed
+abstract class TestIamPermissionsOptions with _$TestIamPermissionsOptions {
+  const factory TestIamPermissionsOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _TestIamPermissionsOptions;
 }
 
+/// IAM policy for a bucket or object.
+///
+/// This is a type alias for the Google Cloud Storage API's Policy resource.
 typedef Policy = storage_v1.Policy;
 
-class GetNotificationsOptions {
-  final String? userProject;
-
-  const GetNotificationsOptions({this.userProject});
+/// Options for getting notification configurations.
+@freezed
+abstract class GetNotificationsOptions with _$GetNotificationsOptions {
+  const factory GetNotificationsOptions({
+    /// The ID of the project which will be billed for the request.
+    String? userProject,
+  }) = _GetNotificationsOptions;
 }
 
+/// Metadata for a notification configuration.
+///
+/// This is a type alias for the Google Cloud Storage API's Notification resource.
 typedef NotificationMetadata = storage_v1.Notification;
 
+/// HTTP method for a signed URL.
 enum SignedUrlMethod {
+  /// GET method - for reading/downloading objects.
   get('GET'),
+
+  /// PUT method - for uploading objects.
   put('PUT'),
+
+  /// DELETE method - for deleting objects.
   delete('DELETE'),
+
+  /// POST method - for resumable uploads.
   post('POST');
 
-  const SignedUrlMethod(this.value);
+  /// The HTTP method string value.
   final String value;
+
+  const SignedUrlMethod(this.value);
 }
 
-enum SignedUrlVersion { v2, v4 }
+/// Version of the signed URL signing algorithm.
+enum SignedUrlVersion {
+  /// Version 2 signing (legacy).
+  v2,
+
+  /// Version 4 signing (recommended).
+  v4,
+}
 
 /// Configuration for generating a signed URL, modeled after the Node SDK's
 /// `SignerGetSignedUrlConfig` but simplified for v4 signing.
-class SignedUrlConfig {
-  final SignedUrlMethod method; // 'GET', 'PUT', etc.
-  final DateTime expires;
-  final DateTime? accessibleAt;
-  final bool? virtualHostedStyle;
-  final SignedUrlVersion? version;
-  final String? cname;
-  final Map<String, String>? extensionHeaders;
-  final Map<String, String>? queryParams;
-  final String? contentMd5;
-  final String? contentType;
-  final Uri? host;
-  final Uri? signingEndpoint;
+@freezed
+abstract class SignedUrlConfig with _$SignedUrlConfig {
+  const factory SignedUrlConfig({
+    /// The HTTP method for the signed URL (GET, PUT, DELETE, POST).
+    required SignedUrlMethod method,
 
-  const SignedUrlConfig({
-    required this.method,
-    required this.expires,
-    this.accessibleAt,
-    this.virtualHostedStyle,
-    this.cname,
-    this.version,
-    this.extensionHeaders,
-    this.queryParams,
-    this.contentMd5,
-    this.contentType,
-    this.host,
-    this.signingEndpoint,
-  });
+    /// When the signed URL should expire.
+    required DateTime expires,
+
+    /// When the signed URL becomes accessible (for v4 signing).
+    DateTime? accessibleAt,
+
+    /// Use virtual-hosted-style URLs instead of path-style URLs.
+    bool? virtualHostedStyle,
+
+    /// The version of the signing algorithm to use.
+    SignedUrlVersion? version,
+
+    /// Custom domain name for the signed URL.
+    String? cname,
+
+    /// Additional headers to include in the signed URL.
+    Map<String, String>? extensionHeaders,
+
+    /// Additional query parameters to include in the signed URL.
+    Map<String, String>? queryParams,
+
+    /// MD5 hash of the content (for PUT requests).
+    String? contentMd5,
+
+    /// Content-Type header value.
+    String? contentType,
+
+    /// Custom host for the signed URL.
+    Uri? host,
+
+    /// Custom signing endpoint.
+    Uri? signingEndpoint,
+  }) = _SignedUrlConfig;
 }
 
 /// Sealed class for type-safe file/directory inputs for transfer operations.
-sealed class TransferSource {
-  const TransferSource._();
+///
+/// This provides type-safe ways to specify sources for upload, download, and
+/// transfer operations.
+@freezed
+sealed class TransferSource with _$TransferSource {
+  /// Transfer a single file from the given path.
+  const factory TransferSource.file(String path) = FileTransferSource;
 
-  /// Single file path.
-  const factory TransferSource.file(String path) = _FileTransferSource;
+  /// Transfer multiple files from the given paths.
+  const factory TransferSource.files(List<String> paths) = FilesTransferSource;
 
-  /// Multiple file paths.
-  const factory TransferSource.files(List<String> paths) = _FilesTransferSource;
-
-  /// Directory path (will be recursively walked).
-  const factory TransferSource.directory(String path) =
-      _DirectoryTransferSource;
+  /// Transfer all files from the given directory path.
+  const factory TransferSource.directory(String path) = DirectoryTransferSource;
 }
 
-final class _FileTransferSource extends TransferSource {
-  final String path;
-  const _FileTransferSource(this.path) : super._();
+/// Sealed class for type-safe destination inputs for copy operations.
+///
+/// This provides type-safe ways to specify destinations for copy operations.
+@freezed
+sealed class CopyDestination with _$CopyDestination {
+  /// Copy to a file at the given path.
+  const factory CopyDestination.path(String path) = PathCopyDestination;
+
+  /// Copy to the given [File] object.
+  const factory CopyDestination.file(File file) = FileCopyDestination;
+
+  /// Copy to the given [Bucket] object.
+  const factory CopyDestination.bucket(Bucket bucket) = BucketCopyDestination;
 }
 
-final class _FilesTransferSource extends TransferSource {
-  final List<String> paths;
-  const _FilesTransferSource(this.paths) : super._();
+/// Sealed class for type-safe destination inputs for atomic move operations.
+@freezed
+sealed class MoveFileAtomicDestination with _$MoveFileAtomicDestination {
+  /// Move to a file at the given path.
+  const factory MoveFileAtomicDestination.path(String path) =
+      PathMoveFileAtomicDestination;
+
+  /// Move to the given [File] object.
+  const factory MoveFileAtomicDestination.file(File file) =
+      FileMoveFileAtomicDestination;
 }
 
-final class _DirectoryTransferSource extends TransferSource {
-  final String path;
-  const _DirectoryTransferSource(this.path) : super._();
-}
+/// Destination for move operations.
+///
+/// Uses [CopyDestination] since move operations internally use copy.
+typedef MoveDestination = CopyDestination;
 
 /// Options for uploading many files.
-class UploadManyFilesOptions {
-  final int? concurrencyLimit;
-  final String Function(String path, UploadManyFilesOptions options)?
-  customDestinationBuilder;
-  final bool? skipIfExists;
-  final String? prefix;
-  final Map<String, dynamic>? passthroughOptions;
+@freezed
+abstract class UploadManyFilesOptions with _$UploadManyFilesOptions {
+  const factory UploadManyFilesOptions({
+    /// Maximum number of concurrent uploads. Defaults to a reasonable value.
+    int? concurrencyLimit,
 
-  const UploadManyFilesOptions({
-    this.concurrencyLimit,
-    this.customDestinationBuilder,
-    this.skipIfExists,
-    this.prefix,
-    this.passthroughOptions,
-  });
+    /// Custom function to build the destination path for each file.
+    ///
+    /// If provided, this function is called for each file to determine
+    /// its destination path in the bucket.
+    String Function(String path, UploadManyFilesOptions options)?
+    customDestinationBuilder,
+
+    /// If `true`, skip files that already exist in the destination.
+    bool? skipIfExists,
+
+    /// Prefix to add to all destination paths.
+    String? prefix,
+
+    /// Additional options to pass through to individual upload operations.
+    Map<String, dynamic>? passthroughOptions,
+  }) = _UploadManyFilesOptions;
 }
 
 /// Options for downloading many files.
-class DownloadManyFilesOptions {
-  final int? concurrencyLimit;
-  final String? prefix;
-  final String? stripPrefix;
-  final Map<String, dynamic>? passthroughOptions;
-  final bool? skipIfExists;
+@freezed
+abstract class DownloadManyFilesOptions with _$DownloadManyFilesOptions {
+  const factory DownloadManyFilesOptions({
+    /// Maximum number of concurrent downloads. Defaults to a reasonable value.
+    int? concurrencyLimit,
 
-  const DownloadManyFilesOptions({
-    this.concurrencyLimit,
-    this.prefix,
-    this.stripPrefix,
-    this.passthroughOptions,
-    this.skipIfExists,
-  });
+    /// Prefix to filter files to download.
+    String? prefix,
+
+    /// Prefix to strip from file paths when saving locally.
+    String? stripPrefix,
+
+    /// Additional options to pass through to individual download operations.
+    Map<String, dynamic>? passthroughOptions,
+
+    /// If `true`, skip files that already exist locally.
+    bool? skipIfExists,
+  }) = _DownloadManyFilesOptions;
 }
 
-/// Options for uploading a file in chunks.
-class UploadFileInChunksOptions {
-  final int? concurrencyLimit;
-  final int? chunkSizeBytes;
-  final String? uploadName;
-  final int? maxQueueSize;
-  final String? uploadId;
-  final bool? autoAbortFailure;
-  final Map<int, String>? partsMap;
-  final String? validation; // 'md5' or null/false
-  final Map<String, String>? headers;
+/// Options for uploading a file in chunks (multipart upload).
+@freezed
+abstract class UploadFileInChunksOptions with _$UploadFileInChunksOptions {
+  const factory UploadFileInChunksOptions({
+    /// Maximum number of concurrent chunk uploads.
+    int? concurrencyLimit,
 
-  const UploadFileInChunksOptions({
-    this.concurrencyLimit,
-    this.chunkSizeBytes,
-    this.uploadName,
-    this.maxQueueSize,
-    this.uploadId,
-    this.autoAbortFailure,
-    this.partsMap,
-    this.validation,
-    this.headers,
-  });
+    /// Size of each chunk in bytes.
+    int? chunkSizeBytes,
+
+    /// Name for the upload operation.
+    String? uploadName,
+
+    /// Maximum size of the upload queue.
+    int? maxQueueSize,
+
+    /// ID of an existing upload to resume.
+    String? uploadId,
+
+    /// If `true`, automatically abort the upload on failure.
+    bool? autoAbortFailure,
+
+    /// Map of chunk indices to their part identifiers (for resuming).
+    Map<int, String>? partsMap,
+
+    /// Validation type for data integrity checks.
+    ValidationType? validation,
+
+    /// Additional headers to include in upload requests.
+    Map<String, String>? headers,
+  }) = _UploadFileInChunksOptions;
 }
 
 /// Options for downloading a file in chunks.
-class DownloadFileInChunksOptions {
-  final int? concurrencyLimit;
-  final int? chunkSizeBytes;
-  final String? destination;
-  final String? validation; // 'crc32c' or null/false
-  final bool? noReturnData;
+@freezed
+abstract class DownloadFileInChunksOptions with _$DownloadFileInChunksOptions {
+  const factory DownloadFileInChunksOptions({
+    /// Maximum number of concurrent chunk downloads.
+    int? concurrencyLimit,
 
-  const DownloadFileInChunksOptions({
-    this.concurrencyLimit,
-    this.chunkSizeBytes,
-    this.destination,
-    this.validation,
-    this.noReturnData,
-  });
+    /// Size of each chunk in bytes.
+    int? chunkSizeBytes,
+
+    /// Local file path to save the downloaded file.
+    String? destination,
+
+    /// Validation type for data integrity checks.
+    ValidationType? validation,
+
+    /// If `true`, don't return the downloaded data (only save to file).
+    bool? noReturnData,
+  }) = _DownloadFileInChunksOptions;
 }

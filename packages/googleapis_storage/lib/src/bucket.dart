@@ -882,7 +882,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
     if (options?.includeFiles == true) {
       return await _makeAllFilesPublicPrivate(
-        MakeAllFilesPublicPrivateOptions._(
+        MakeAllFilesPublicPrivateOptions(
           private: true,
           force: options?.force,
           userProject: options?.userProject ?? userProject,
@@ -902,7 +902,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
     if (options?.includeFiles == true) {
       return await _makeAllFilesPublicPrivate(
-        MakeAllFilesPublicPrivateOptions._(
+        MakeAllFilesPublicPrivateOptions(
           public: true,
           force: options?.force,
           userProject: userProject,
