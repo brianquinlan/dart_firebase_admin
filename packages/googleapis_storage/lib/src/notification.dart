@@ -1,15 +1,5 @@
 part of '../googleapis_storage.dart';
 
-class GetNotificationsOptions {
-  final String? userProject;
-
-  const GetNotificationsOptions({
-    this.userProject,
-  });
-}
-
-typedef NotificationMetadata = storage_v1.Notification;
-
 class Notification extends ServiceObject<NotificationMetadata>
     with
         GettableMixin<NotificationMetadata, Notification>,
@@ -18,11 +8,11 @@ class Notification extends ServiceObject<NotificationMetadata>
   final Bucket bucket;
 
   Notification._(this.bucket, String id)
-      : super(
-          service: bucket.storage,
-          id: id,
-          metadata: NotificationMetadata()..id = id,
-        );
+    : super(
+        service: bucket.storage,
+        id: id,
+        metadata: NotificationMetadata()..id = id,
+      );
 
   @override
   Future<Notification> create(NotificationMetadata metadata) {
@@ -60,10 +50,7 @@ class Notification extends ServiceObject<NotificationMetadata>
     final api = ApiExecutor(bucket.storage);
     return api.execute<void>((client) async {
       try {
-        await client.notifications.delete(
-          bucket.id,
-          id,
-        );
+        await client.notifications.delete(bucket.id, id);
       } on ApiError catch (e) {
         if (e.code == 404 && options?.ignoreNotFound == true) {
           return;

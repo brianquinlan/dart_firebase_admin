@@ -1,48 +1,7 @@
 part of '../googleapis_storage.dart';
 
 // TODO: Where should this go?
-abstract class WatchAllOptions {
-  final String? delimiter;
-  final int? maxResults;
-  final String? pageToken;
-  final String? prefix;
-  final String? projection;
-  final String? userProject;
-  final bool? versions;
 
-  const WatchAllOptions({
-    this.delimiter,
-    this.maxResults,
-    this.pageToken,
-    this.prefix,
-    this.projection,
-    this.userProject,
-    this.versions,
-  });
-}
-
-class CreateChannelConfig extends WatchAllOptions {
-  final String address;
-
-  const CreateChannelConfig({
-    required this.address,
-    super.delimiter,
-    super.maxResults,
-    super.pageToken,
-    super.prefix,
-    super.projection,
-    super.userProject,
-    super.versions,
-  });
-}
-
-class CreateChannelOptions {
-  final String? userProject;
-
-  const CreateChannelOptions({this.userProject});
-}
-
-typedef ChannelMetadata = storage_v1.Channel;
 
 /// Create a channel object to interact with a Cloud Storage channel.
 ///

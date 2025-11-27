@@ -13,113 +13,6 @@ const _emptyRegex = r'(?:)';
 // GCCL GCS Command feature constants
 const _gcclGcsCmdFeatureUploadSharded = 'tm.upload_sharded';
 
-/// Sealed class for type-safe file/directory inputs for transfer operations.
-sealed class TransferSource {
-  const TransferSource._();
-
-  /// Single file path.
-  const factory TransferSource.file(String path) = _FileTransferSource;
-
-  /// Multiple file paths.
-  const factory TransferSource.files(List<String> paths) = _FilesTransferSource;
-
-  /// Directory path (will be recursively walked).
-  const factory TransferSource.directory(String path) =
-      _DirectoryTransferSource;
-}
-
-final class _FileTransferSource extends TransferSource {
-  final String path;
-  const _FileTransferSource(this.path) : super._();
-}
-
-final class _FilesTransferSource extends TransferSource {
-  final List<String> paths;
-  const _FilesTransferSource(this.paths) : super._();
-}
-
-final class _DirectoryTransferSource extends TransferSource {
-  final String path;
-  const _DirectoryTransferSource(this.path) : super._();
-}
-
-/// Options for uploading many files.
-class UploadManyFilesOptions {
-  final int? concurrencyLimit;
-  final String Function(String path, UploadManyFilesOptions options)?
-  customDestinationBuilder;
-  final bool? skipIfExists;
-  final String? prefix;
-  final Map<String, dynamic>? passthroughOptions;
-
-  const UploadManyFilesOptions({
-    this.concurrencyLimit,
-    this.customDestinationBuilder,
-    this.skipIfExists,
-    this.prefix,
-    this.passthroughOptions,
-  });
-}
-
-/// Options for downloading many files.
-class DownloadManyFilesOptions {
-  final int? concurrencyLimit;
-  final String? prefix;
-  final String? stripPrefix;
-  final Map<String, dynamic>? passthroughOptions;
-  final bool? skipIfExists;
-
-  const DownloadManyFilesOptions({
-    this.concurrencyLimit,
-    this.prefix,
-    this.stripPrefix,
-    this.passthroughOptions,
-    this.skipIfExists,
-  });
-}
-
-/// Options for uploading a file in chunks.
-class UploadFileInChunksOptions {
-  final int? concurrencyLimit;
-  final int? chunkSizeBytes;
-  final String? uploadName;
-  final int? maxQueueSize;
-  final String? uploadId;
-  final bool? autoAbortFailure;
-  final Map<int, String>? partsMap;
-  final String? validation; // 'md5' or null/false
-  final Map<String, String>? headers;
-
-  const UploadFileInChunksOptions({
-    this.concurrencyLimit,
-    this.chunkSizeBytes,
-    this.uploadName,
-    this.maxQueueSize,
-    this.uploadId,
-    this.autoAbortFailure,
-    this.partsMap,
-    this.validation,
-    this.headers,
-  });
-}
-
-/// Options for downloading a file in chunks.
-class DownloadFileInChunksOptions {
-  final int? concurrencyLimit;
-  final int? chunkSizeBytes;
-  final String? destination;
-  final String? validation; // 'crc32c' or null/false
-  final bool? noReturnData;
-
-  const DownloadFileInChunksOptions({
-    this.concurrencyLimit,
-    this.chunkSizeBytes,
-    this.destination,
-    this.validation,
-    this.noReturnData,
-  });
-}
-
 /// Error thrown when a multipart upload fails.
 ///
 /// Contains the uploadId and partsMap for resuming the upload.
@@ -128,7 +21,7 @@ class MultiPartUploadError implements Exception {
   final String uploadId;
   final Map<int, String> partsMap;
 
-  MultiPartUploadError(this.message, this.uploadId, this.partsMap);
+  MultiPartUploadError._(this.message, this.uploadId, this.partsMap);
 
   @override
   String toString() => 'MultiPartUploadError: $message (uploadId: $uploadId)';
@@ -687,14 +580,14 @@ class TransferManager {
         try {
           await mpuHelper.abortUpload();
         } catch (abortError) {
-          throw MultiPartUploadError(
+          throw MultiPartUploadError._(
             abortError.toString(),
             mpuHelper.uploadId,
             mpuHelper.partsMap,
           );
         }
       }
-      throw MultiPartUploadError(
+      throw MultiPartUploadError._(
         e.toString(),
         mpuHelper.uploadId,
         mpuHelper.partsMap,

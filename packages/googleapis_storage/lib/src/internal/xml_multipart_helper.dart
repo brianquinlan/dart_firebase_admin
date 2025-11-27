@@ -1,14 +1,11 @@
-part of '../googleapis_storage.dart';
+import 'package:xml/xml.dart' as xml;
 
 /// Information about an uploaded part in a multipart upload.
 class PartInfo {
   final int partNumber;
   final String etag;
 
-  const PartInfo({
-    required this.partNumber,
-    required this.etag,
-  });
+  const PartInfo({required this.partNumber, required this.etag});
 }
 
 /// Utility class for parsing and building XML for multipart uploads.
@@ -49,15 +46,20 @@ class XmlMultipartHelper {
   /// ```
   static String buildCompleteMultipartBody(List<PartInfo> parts) {
     final builder = xml.XmlBuilder();
-    builder.element('CompleteMultipartUpload', nest: () {
-      for (final part in parts) {
-        builder.element('Part', nest: () {
-          builder.element('PartNumber', nest: part.partNumber.toString());
-          builder.element('ETag', nest: part.etag);
-        });
-      }
-    });
+    builder.element(
+      'CompleteMultipartUpload',
+      nest: () {
+        for (final part in parts) {
+          builder.element(
+            'Part',
+            nest: () {
+              builder.element('PartNumber', nest: part.partNumber.toString());
+              builder.element('ETag', nest: part.etag);
+            },
+          );
+        }
+      },
+    );
     return builder.buildDocument().toXmlString(pretty: false);
   }
 }
-

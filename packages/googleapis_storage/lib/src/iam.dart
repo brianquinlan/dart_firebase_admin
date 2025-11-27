@@ -1,6 +1,5 @@
 part of '../googleapis_storage.dart';
 
-typedef Policy = storage_v1.Policy;
 
 class Iam {
   final Bucket bucket;
@@ -59,28 +58,3 @@ class Iam {
   }
 }
 
-class GetPolicyOptions {
-  final String? userProject;
-  final int? requestedPolicyVersion;
-
-  const GetPolicyOptions({
-    this.userProject,
-    this.requestedPolicyVersion,
-  });
-}
-
-class SetPolicyOptions {
-  final String? userProject;
-
-  const SetPolicyOptions({
-    this.userProject,
-  });
-}
-
-class TestIamPermissionsOptions {
-  final String? userProject;
-
-  const TestIamPermissionsOptions({
-    this.userProject,
-  });
-}

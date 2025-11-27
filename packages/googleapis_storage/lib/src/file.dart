@@ -5,466 +5,6 @@ final _HTTPS_PUBLIC_URL_REGEX = RegExp(
   r'^https://storage\.googleapis\.com/([a-z0-9_.-]+)/(.+)$',
 );
 
-typedef FileMetadata = storage_v1.Object;
-
-class FileOptions {
-  final Crc32Generator? crc32cGenerator;
-  final String? encryptionKey;
-  final int? generation;
-  final String? restoreToken;
-  final String? kmsKeyName;
-  final PreconditionOptions? preconditionOpts;
-  final String? userProject;
-
-  const FileOptions({
-    this.crc32cGenerator,
-    this.encryptionKey,
-    this.generation,
-    this.restoreToken,
-    this.kmsKeyName,
-    this.preconditionOpts,
-    this.userProject,
-  });
-
-  FileOptions copyWith({
-    Crc32Generator? crc32cGenerator,
-    String? encryptionKey,
-    int? generation,
-    String? restoreToken,
-    String? kmsKeyName,
-    PreconditionOptions? preconditionOpts,
-    String? userProject,
-  }) {
-    return FileOptions(
-      crc32cGenerator: crc32cGenerator ?? this.crc32cGenerator,
-      encryptionKey: encryptionKey ?? this.encryptionKey,
-      generation: generation ?? this.generation,
-      restoreToken: restoreToken ?? this.restoreToken,
-      kmsKeyName: kmsKeyName ?? this.kmsKeyName,
-      preconditionOpts: preconditionOpts ?? this.preconditionOpts,
-      userProject: userProject ?? this.userProject,
-    );
-  }
-}
-
-class GetFilesOptions {
-  final bool? autoPaginate;
-  final String? delimiter;
-  final String? endOffset;
-  final bool? includeFoldersAsPrefixes;
-  final bool? includeTrailingDelimiter;
-  final String? prefix;
-  final String? matchGlob;
-  final int? maxApiCalls;
-  final int? maxResults;
-  final String? pageToken;
-  final bool? softDeleted;
-  final String? startOffset;
-  final String? userProject;
-  final bool? versions;
-  final String? fields;
-
-  const GetFilesOptions({
-    this.autoPaginate = true,
-    this.delimiter,
-    this.endOffset,
-    this.includeFoldersAsPrefixes,
-    this.includeTrailingDelimiter,
-    this.prefix,
-    this.matchGlob,
-    this.maxApiCalls,
-    this.maxResults,
-    this.pageToken,
-    this.softDeleted,
-    this.startOffset,
-    this.userProject,
-    this.versions,
-    this.fields,
-  });
-
-  GetFilesOptions copyWith({
-    bool? autoPaginate,
-    String? delimiter,
-    String? endOffset,
-    bool? includeFoldersAsPrefixes,
-    bool? includeTrailingDelimiter,
-    String? prefix,
-    String? matchGlob,
-    int? maxApiCalls,
-    int? maxResults,
-    String? pageToken,
-    bool? softDeleted,
-    String? startOffset,
-    String? userProject,
-    bool? versions,
-    String? fields,
-  }) {
-    return GetFilesOptions(
-      autoPaginate: autoPaginate ?? this.autoPaginate,
-      delimiter: delimiter ?? this.delimiter,
-      endOffset: endOffset ?? this.endOffset,
-      includeFoldersAsPrefixes:
-          includeFoldersAsPrefixes ?? this.includeFoldersAsPrefixes,
-      includeTrailingDelimiter:
-          includeTrailingDelimiter ?? this.includeTrailingDelimiter,
-      prefix: prefix ?? this.prefix,
-      matchGlob: matchGlob ?? this.matchGlob,
-      maxApiCalls: maxApiCalls ?? this.maxApiCalls,
-      maxResults: maxResults ?? this.maxResults,
-      pageToken: pageToken ?? this.pageToken,
-      softDeleted: softDeleted ?? this.softDeleted,
-      startOffset: startOffset ?? this.startOffset,
-      userProject: userProject ?? this.userProject,
-      versions: versions ?? this.versions,
-      fields: fields ?? this.fields,
-    );
-  }
-}
-
-class DeleteFileOptions extends GetFilesOptions {
-  final bool? force;
-  // PreconditionOptions fields
-  final int? ifGenerationMatch;
-  final int? ifGenerationNotMatch;
-  final int? ifMetagenerationMatch;
-  final int? ifMetagenerationNotMatch;
-
-  const DeleteFileOptions({
-    this.force,
-    // GetFilesOptions fields
-    super.autoPaginate,
-    super.delimiter,
-    super.endOffset,
-    super.includeFoldersAsPrefixes,
-    super.includeTrailingDelimiter,
-    super.prefix,
-    super.matchGlob,
-    super.maxApiCalls,
-    super.maxResults,
-    super.pageToken,
-    super.softDeleted,
-    super.startOffset,
-    super.userProject,
-    super.versions,
-    super.fields,
-    // PreconditionOptions fields
-    this.ifGenerationMatch,
-    this.ifGenerationNotMatch,
-    this.ifMetagenerationMatch,
-    this.ifMetagenerationNotMatch,
-  });
-}
-
-class GetFileMetadataOptions {
-  final String? userProject;
-
-  const GetFileMetadataOptions({this.userProject});
-}
-
-class SetFileMetadataOptions extends PreconditionOptions {
-  final String? userProject;
-
-  const SetFileMetadataOptions({
-    this.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
-}
-
-class CopyOptions {
-  final String? cacheControl;
-  final String? contentEncoding;
-  final String? contentType;
-  final String? contentDisposition;
-  final String? destinationKmsKeyName;
-  final Map<String, String>? metadata;
-  final PredefinedAcl? predefinedAcl;
-  final String? token;
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
-
-  const CopyOptions({
-    this.cacheControl,
-    this.contentEncoding,
-    this.contentType,
-    this.contentDisposition,
-    this.destinationKmsKeyName,
-    this.metadata,
-    this.predefinedAcl,
-    this.token,
-    this.userProject,
-    this.preconditionOpts,
-  });
-}
-
-class MoveOptions {
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
-
-  const MoveOptions({this.userProject, this.preconditionOpts});
-}
-
-class MakeFilePrivateOptions {
-  final FileMetadata? metadata;
-  final bool? strict;
-  final String? userProject;
-  final PreconditionOptions? preconditionOpts;
-
-  const MakeFilePrivateOptions({
-    this.metadata,
-    this.strict,
-    this.userProject,
-    this.preconditionOpts,
-  });
-}
-
-class GetFileSignedUrlOptions {
-  final Uri? host; // inherited from SignedUrlConfig
-  final Uri? signingEndpoint; // inherited from SignedUrlConfig
-
-  final String action;
-  final SignedUrlVersion? version;
-  final String? cname;
-  final bool? virtualHostedStyle;
-  final DateTime expires;
-  final Map<String, String>? extensionHeaders;
-  final Map<String, String>? queryParams;
-  final String? contentMd5;
-  final String? contentType;
-  final String? promptSaveAs;
-  final String? responseDisposition;
-  final String? responseType;
-  final DateTime? accessibleAt;
-
-  const GetFileSignedUrlOptions({
-    this.host,
-    this.signingEndpoint,
-    required this.action,
-    this.version,
-    this.cname,
-    this.virtualHostedStyle = false,
-    required this.expires,
-    this.extensionHeaders,
-    this.queryParams,
-    this.contentMd5,
-    this.contentType,
-    this.promptSaveAs,
-    this.responseDisposition,
-    this.responseType,
-    this.accessibleAt,
-  });
-}
-
-class SetFileStorageClassOptions extends SetFileMetadataOptions {
-  const SetFileStorageClassOptions({
-    super.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
-}
-
-class RestoreFileOptions extends PreconditionOptions {
-  final int generation;
-  final String? restoreToken;
-  final Projection? projection;
-  final String? userProject;
-
-  const RestoreFileOptions({
-    required this.generation,
-    this.restoreToken,
-    this.projection,
-    this.userProject,
-    super.ifMetagenerationMatch,
-    super.ifMetagenerationNotMatch,
-    super.ifGenerationMatch,
-    super.ifGenerationNotMatch,
-  });
-}
-
-/// Validation type for data integrity checks during upload.
-enum ValidationType {
-  /// Validate using CRC32C checksum (default).
-  crc32c,
-
-  /// Validate using MD5 checksum.
-  md5,
-
-  /// Disable validation.
-  none,
-}
-
-/// Progress information for an upload operation.
-class UploadProgress {
-  /// Number of bytes written so far.
-  final int bytesWritten;
-
-  /// Total number of bytes to upload, if known.
-  final int? totalBytes;
-
-  const UploadProgress._({required this.bytesWritten, this.totalBytes});
-}
-
-/// Options for creating a write stream to upload a file.
-class CreateWriteStreamOptions {
-  /// Content type of the file. If set to 'auto', the file name is used to determine the contentType.
-  final String? contentType;
-
-  /// If true, automatically gzip the file. If null, the contentType is used to determine if the file should be gzipped (auto-detect).
-  final bool? gzip;
-
-  /// Metadata for the file. See Objects: insert request body for details.
-  final FileMetadata? metadata;
-
-  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
-  final int? offset;
-
-  /// Apply a predefined set of access controls to this object.
-  final PredefinedAcl? predefinedAcl;
-
-  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
-  final bool? private;
-
-  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
-  final bool? public;
-
-  /// Force a resumable upload. Defaults to true.
-  final bool? resumable;
-
-  /// Set the HTTP request timeout in milliseconds. This option is not available for resumable uploads. Default: 60000
-  final int? timeout;
-
-  /// The URI for an already-created resumable upload. See File.createResumableUpload().
-  final String? uri;
-
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
-
-  /// Validation type for data integrity checks. By default, data integrity is validated with a CRC32c checksum.
-  final ValidationType? validation;
-
-  /// A CRC32C to resume from when continuing a previous upload.
-  final String? resumeCRC32C;
-
-  /// Precondition options for the upload.
-  final PreconditionOptions? preconditionOpts;
-
-  /// Chunk size for resumable uploads. Default: 256KB
-  final int? chunkSize;
-
-  /// High water mark for the stream. Controls buffer size.
-  final int? highWaterMark;
-
-  /// Whether this is a partial upload.
-  final bool? isPartialUpload;
-
-  /// Callback for upload progress events.
-  final void Function(UploadProgress)? onUploadProgress;
-
-  const CreateWriteStreamOptions({
-    this.contentType,
-    this.gzip,
-    this.metadata,
-    this.offset,
-    this.predefinedAcl,
-    this.private,
-    this.public,
-    this.resumable,
-    this.timeout,
-    this.uri,
-    this.userProject,
-    this.validation,
-    this.resumeCRC32C,
-    this.preconditionOpts,
-    this.chunkSize,
-    this.highWaterMark,
-    this.isPartialUpload,
-    this.onUploadProgress,
-  });
-}
-
-/// Options for saving data to a file.
-class SaveOptions extends CreateWriteStreamOptions {
-  /// Callback for upload progress events.
-  final void Function(UploadProgress)? onUploadProgress;
-
-  const SaveOptions({
-    super.contentType,
-    super.gzip,
-    super.metadata,
-    super.offset,
-    super.predefinedAcl,
-    super.private,
-    super.public,
-    super.resumable,
-    super.timeout,
-    super.uri,
-    super.userProject,
-    super.validation,
-    super.resumeCRC32C,
-    super.preconditionOpts,
-    super.chunkSize,
-    super.highWaterMark,
-    super.isPartialUpload,
-    this.onUploadProgress,
-  });
-}
-
-/// Options for creating a resumable upload URI.
-class CreateResumableUploadOptions {
-  /// Metadata for the file.
-  final FileMetadata? metadata;
-
-  /// The starting byte of the upload stream, for resuming an interrupted upload. Defaults to 0.
-  final int? offset;
-
-  /// Apply a predefined set of access controls to this object.
-  final PredefinedAcl? predefinedAcl;
-
-  /// Make the uploaded file private. (Alias for predefinedAcl = 'private')
-  final bool? private;
-
-  /// Make the uploaded file public. (Alias for predefinedAcl = 'publicRead')
-  final bool? public;
-
-  /// The URI for an already-created resumable upload.
-  final String? uri;
-
-  /// The ID of the project which will be billed for the request.
-  final String? userProject;
-
-  /// Precondition options for the upload.
-  final PreconditionOptions? preconditionOpts;
-
-  /// Chunk size for resumable uploads. Default: 256KB
-  final int? chunkSize;
-
-  /// High water mark for the stream. Controls buffer size.
-  final int? highWaterMark;
-
-  /// Whether this is a partial upload.
-  final bool? isPartialUpload;
-
-  const CreateResumableUploadOptions({
-    this.metadata,
-    this.offset,
-    this.predefinedAcl,
-    this.private,
-    this.public,
-    this.uri,
-    this.userProject,
-    this.preconditionOpts,
-    this.chunkSize,
-    this.highWaterMark,
-    this.isPartialUpload,
-  });
-}
-
-/// Type alias for data that can be saved to a file.
-typedef SaveData = Object; // String, Uint8List, List<int>, or Stream<List<int>>
 
 class File extends ServiceObject<FileMetadata>
     with
@@ -497,6 +37,8 @@ class File extends ServiceObject<FileMetadata>
   final String? kmsKeyName;
   URLSigner? _signer;
   EncryptionKey? _encryptionKey;
+
+  URLSigner get signer => _signer ??= URLSigner._(bucket, this);
 
   /// A user project to apply to each request from this file.
   ///
@@ -707,8 +249,210 @@ class File extends ServiceObject<FileMetadata>
     });
   }
 
-  Stream<List<int>> createReadStream([Map<String, dynamic>? options]) {
-    throw UnimplementedError('createReadStream() is not implemented');
+  Stream<List<int>> createReadStream([CreateReadStreamOptions? options]) {
+    final opts = options ?? const CreateReadStreamOptions();
+    final decompress = opts.decompress ?? true;
+
+    // Check if this is a range request
+    final rangeRequest = opts.start != null || opts.end != null;
+    final tailRequest = opts.end != null && opts.end! < 0;
+
+    var (crc32c, md5) = switch (opts.validation) {
+      ValidationType.crc32c => (true, false),
+      ValidationType.md5 => (false, true),
+      ValidationType.none => (false, false),
+      null => (true, false),
+    };
+
+    // Range requests can't receive data integrity checks (per JS SDK)
+    if (rangeRequest) {
+      if (opts.validation != null && opts.validation != ValidationType.none) {
+        throw ArgumentError(
+          'Validation cannot be used with range requests. '
+          'Range requests do not support data integrity checks.',
+        );
+      }
+      crc32c = false;
+      md5 = false;
+    }
+
+    final shouldRunValidation = !rangeRequest && (crc32c || md5);
+
+    // Create a stream controller for the output stream
+    final controller = StreamController<List<int>>();
+    bool streamStarted = false;
+
+    // Make the HTTP request asynchronously
+    Future<void> makeRequest() async {
+      if (streamStarted) return;
+      streamStarted = true;
+
+      try {
+        // Build query parameters
+        final queryParams = <String, String>{'alt': 'media'};
+
+        if (this.options.generation != null) {
+          queryParams['generation'] = this.options.generation.toString();
+        }
+
+        final effectiveUserProject =
+            opts.userProject ?? userProject ?? this.options.userProject;
+        if (effectiveUserProject != null) {
+          queryParams['userProject'] = effectiveUserProject;
+        }
+
+        // Build request URI
+        final apiEndpoint = storage.config.apiEndpoint;
+        final uri = Uri.parse(apiEndpoint).replace(
+          path: '/storage/v1/b/${bucket.id}/o/${Uri.encodeComponent(name)}',
+          queryParameters: queryParams,
+        );
+
+        // Build request headers
+        final headers = <String, String>{
+          'Accept-Encoding': 'gzip',
+          'Cache-Control': 'no-store',
+        };
+
+        // Add Range header if needed
+        if (rangeRequest) {
+          final start = opts.start ?? 0;
+          if (tailRequest) {
+            headers['Range'] = 'bytes=${opts.end}';
+          } else {
+            final end = opts.end?.toString() ?? '';
+            headers['Range'] = 'bytes=$start-$end';
+          }
+        }
+
+        // Add encryption headers if encryption key is set
+        if (_encryptionKey != null) {
+          headers['x-goog-encryption-algorithm'] = 'AES256';
+          headers['x-goog-encryption-key'] = _encryptionKey!.keyBase64;
+          headers['x-goog-encryption-key-sha256'] = _encryptionKey!.keyHash;
+        }
+
+        // Create and send the request
+        final authClient = await storage.authClient;
+        final request = http.Request('GET', uri);
+        request.headers.addAll(headers);
+
+        final response = await authClient.send(request);
+
+        // Handle error responses - check status code first
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          final body = await response.stream.bytesToString();
+          final error = ApiError(
+            'Download failed',
+            code: response.statusCode,
+            details: body,
+          );
+          controller.addError(error);
+          await controller.close();
+          return;
+        }
+
+        // Parse response headers (available before consuming stream)
+        final responseHeaders = response.headers;
+        final isCompressed =
+            responseHeaders['content-encoding']?.toLowerCase() == 'gzip';
+        final storedContentEncoding =
+            responseHeaders['x-goog-stored-content-encoding'];
+
+        // The object is safe to validate if:
+        // 1. It was stored gzip and returned to us gzip OR
+        // 2. It was never stored as gzip
+        final safeToValidate =
+            (storedContentEncoding == 'gzip' && isCompressed) ||
+            storedContentEncoding == 'identity';
+
+        // Extract expected hashes from x-goog-hash header
+        String? expectedCrc32c;
+        String? expectedMd5;
+        if (shouldRunValidation) {
+          final hashHeader = responseHeaders['x-goog-hash'];
+          if (hashHeader != null) {
+            final hashPairs = hashHeader.split(',');
+            for (final pair in hashPairs) {
+              final delimiterIndex = pair.indexOf('=');
+              if (delimiterIndex > 0) {
+                final hashType = pair.substring(0, delimiterIndex).trim();
+                final hashValue = pair.substring(delimiterIndex + 1).trim();
+                if (hashType == 'crc32c') {
+                  expectedCrc32c = hashValue;
+                } else if (hashType == 'md5') {
+                  expectedMd5 = hashValue;
+                }
+              }
+            }
+          }
+        }
+
+        // Check if MD5 is required but not available
+        if (md5 && expectedMd5 == null) {
+          final error = ApiError(
+            'MD5 hash is not available for this object',
+            code: null,
+            details: {'code': 'MD5_NOT_AVAILABLE'},
+          );
+          controller.addError(error);
+          await controller.close();
+          return;
+        }
+
+        // Build the processing pipeline from the response stream
+        Stream<List<int>> pipeline = response.stream;
+
+        // Apply validation if needed
+        HashStreamValidator? validateStream;
+        if (safeToValidate && shouldRunValidation) {
+          validateStream = HashStreamValidator(
+            HashStreamValidatorOptions(
+              crc32c: crc32c,
+              md5: md5,
+              crc32cExpected: expectedCrc32c,
+              md5Expected: expectedMd5,
+              crc32cGenerator: crc32cGenerator,
+            ),
+          );
+          pipeline = pipeline.transform(validateStream);
+        }
+
+        // Apply decompression if needed
+        if (isCompressed && decompress) {
+          pipeline = pipeline.transform(io.gzip.decoder);
+        }
+
+        // Forward the stream to the controller
+        final subscription = pipeline.listen(
+          (data) {
+            controller.add(data);
+          },
+          onError: (error, stackTrace) {
+            controller.addError(error, stackTrace);
+          },
+          onDone: () {
+            controller.close();
+          },
+          cancelOnError: false,
+        );
+
+        // Handle controller cancellation
+        controller.onCancel = () {
+          subscription.cancel();
+        };
+      } catch (e, stackTrace) {
+        if (!controller.isClosed) {
+          controller.addError(e, stackTrace);
+          await controller.close();
+        }
+      }
+    }
+
+    // Start the request when the stream is listened to
+    controller.onListen = makeRequest;
+
+    return controller.stream;
   }
 
   Future<String> createResumableUpload([
@@ -1003,8 +747,99 @@ class File extends ServiceObject<FileMetadata>
     );
   }
 
-  Future<List<int>> download([Map<String, dynamic>? options]) {
-    throw UnimplementedError('download() is not implemented');
+  /// Helper method to collect all data from a stream into a single byte list.
+  Future<List<int>> _getBufferFromStream(Stream<List<int>> stream) async {
+    final buffer = <int>[];
+    await for (final chunk in stream) {
+      buffer.addAll(chunk);
+    }
+    return buffer;
+  }
+
+  Future<List<int>> download([DownloadOptions? options]) async {
+    final opts = options ?? const DownloadOptions();
+
+    // Extract destination and encryptionKey from options
+    final destination = opts.destination;
+    final encryptionKey = opts.encryptionKey;
+
+    // Set encryption key if provided
+    if (encryptionKey != null) {
+      setEncryptionKey(encryptionKey);
+    }
+
+    // Create read stream options (without destination and encryptionKey)
+    final readStreamOptions = CreateReadStreamOptions(
+      userProject: opts.userProject,
+      validation: opts.validation,
+      start: opts.start,
+      end: opts.end,
+      decompress: opts.decompress,
+    );
+
+    // Create the read stream
+    final fileStream = createReadStream(readStreamOptions);
+
+    if (destination != null) {
+      // Download to file
+      final completer = Completer<List<int>>();
+      bool receivedData = false;
+      final writeStream = destination.openWrite();
+
+      final subscription = fileStream.listen(
+        (data) {
+          if (!receivedData) {
+            receivedData = true;
+            // We know the file exists on the server - now we can write to the file
+          }
+          writeStream.add(data);
+        },
+        onError: (error, stackTrace) {
+          writeStream.addError(error, stackTrace);
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+        onDone: () async {
+          try {
+            await writeStream.close();
+            // In the case of an empty file, no data will be received before the end event fires
+            if (!receivedData) {
+              // File is empty - ensure it exists
+              if (!await destination.exists()) {
+                await destination.writeAsBytes(<int>[]);
+              }
+              if (!completer.isCompleted) {
+                completer.complete(<int>[]);
+              }
+            } else {
+              // Read the file back to return the bytes
+              final bytes = await destination.readAsBytes();
+              if (!completer.isCompleted) {
+                completer.complete(bytes);
+              }
+            }
+          } catch (e, stackTrace) {
+            if (!completer.isCompleted) {
+              completer.completeError(e, stackTrace);
+            }
+          }
+        },
+        cancelOnError: false,
+      );
+
+      // Handle completer cancellation
+      completer.future.catchError((_) {
+        subscription.cancel();
+        writeStream.close();
+        return <int>[]; // Return empty list on error
+      });
+
+      return completer.future;
+    } else {
+      // Download to memory
+      return await _getBufferFromStream(fileStream);
+    }
   }
 
   void setEncryptionKey(EncryptionKey encryptionKey) {
@@ -1071,10 +906,7 @@ class File extends ServiceObject<FileMetadata>
       signingEndpoint: options.signingEndpoint,
     );
 
-    // Lazy initialize the signer
-    _signer ??= URLSigner._(bucket, this);
-
-    return await _signer!.getSignedUrl(configWithQueryParams);
+    return await signer.getSignedUrl(configWithQueryParams);
   }
 
   /// Check whether this file is public or not.
@@ -1290,8 +1122,44 @@ class File extends ServiceObject<FileMetadata>
     });
   }
 
-  Future<File> rotateEncryptionKey([dynamic options]) {
-    throw UnimplementedError('rotateEncryptionKey() is not implemented');
+  /// Rotates the encryption key for this file.
+  ///
+  /// This method allows you to update the encryption key associated with this
+  /// file by copying it to a new file with the new encryption key.
+  ///
+  /// The [options] parameter contains:
+  /// - [RotateEncryptionKeyOptions.encryptionKey]: An [EncryptionKey] instance
+  ///   representing the new AES-256 customer-supplied encryption key. You can
+  ///   create an [EncryptionKey] using [EncryptionKey.fromString] or
+  ///   [EncryptionKey.fromBuffer].
+  /// - [RotateEncryptionKeyOptions.kmsKeyName]: A Cloud KMS key name (alternative
+  ///   to customer-supplied encryption key).
+  /// - [RotateEncryptionKeyOptions.preconditionOpts]: Precondition options for
+  ///   the copy operation (e.g., ifGenerationMatch).
+  ///
+  /// See https://cloud.google.com/storage/docs/encryption#customer-supplied
+  Future<File> rotateEncryptionKey([
+    RotateEncryptionKeyOptions? options,
+  ]) async {
+    final opts = options ?? const RotateEncryptionKeyOptions();
+
+    // Create new file with encryption key options
+    final newFileOptions = FileOptions(
+      encryptionKey: opts.encryptionKey?.keyBase64,
+      kmsKeyName: opts.kmsKeyName,
+    );
+    final newFile = bucket.file(name, newFileOptions);
+
+    // Prepare copy options with precondition options if ifGenerationMatch is defined
+    final copyOptions = opts.preconditionOpts?.ifGenerationMatch != null
+        ? CopyOptions(preconditionOpts: opts.preconditionOpts)
+        : const CopyOptions();
+
+    // Copy this file to the new file
+    return await copy(
+      FileBucketDestination.file(newFile),
+      options: copyOptions,
+    );
   }
 
   Future<void> save(SaveData data, [SaveOptions? options]) async {
@@ -1826,54 +1694,4 @@ class _UploadSink implements StreamSink<List<int>> {
   }
 }
 
-class EncryptionKey {
-  final String _keyBase64;
-  final String _keyHash;
 
-  EncryptionKey._(this._keyBase64, this._keyHash);
-
-  /// Creates an EncryptionKey from a string.
-  ///
-  /// The string is converted to base64, and then a SHA256 hash is computed
-  /// by decoding the base64 string back to bytes and hashing those bytes.
-  /// The hash is then encoded as base64.
-  factory EncryptionKey.fromString(String key) {
-    // Convert string to bytes, then to base64
-    // This mimics: Buffer.from(encryptionKey as string).toString('base64')
-    final keyBytes = utf8.encode(key);
-    final keyBase64 = base64.encode(keyBytes);
-
-    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
-    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
-    final decodedBase64 = base64.decode(keyBase64);
-    final hash = crypto.sha256.convert(decodedBase64);
-    final keyHash = base64.encode(hash.bytes);
-
-    return EncryptionKey._(keyBase64, keyHash);
-  }
-
-  /// Creates an EncryptionKey from a buffer (List<int>).
-  ///
-  /// The buffer is converted to base64, and then a SHA256 hash is computed
-  /// by decoding the base64 string back to bytes and hashing those bytes.
-  /// The hash is then encoded as base64.
-  factory EncryptionKey.fromBuffer(List<int> buffer) {
-    // Convert buffer to base64
-    // This mimics: Buffer.from(encryptionKey).toString('base64')
-    final keyBase64 = base64.encode(buffer);
-
-    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
-    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
-    final decodedBase64 = base64.decode(keyBase64);
-    final hash = crypto.sha256.convert(decodedBase64);
-    final keyHash = base64.encode(hash.bytes);
-
-    return EncryptionKey._(keyBase64, keyHash);
-  }
-
-  /// Gets the base64-encoded encryption key.
-  String get keyBase64 => _keyBase64;
-
-  /// Gets the base64-encoded SHA256 hash of the encryption key.
-  String get keyHash => _keyHash;
-}
