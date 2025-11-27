@@ -1145,7 +1145,7 @@ class File extends ServiceObject<FileMetadata>
 
     // Create new file with encryption key options
     final newFileOptions = FileOptions(
-      encryptionKey: opts.encryptionKey?.keyBase64,
+      encryptionKey: opts.encryptionKey,
       kmsKeyName: opts.kmsKeyName,
     );
     final newFile = bucket.file(name, newFileOptions);
@@ -1692,56 +1692,4 @@ class _UploadSink implements StreamSink<List<int>> {
   Future<void> addStream(Stream<List<int>> stream) async {
     await _controller.addStream(stream);
   }
-}
-
-class EncryptionKey {
-  final String _keyBase64;
-  final String _keyHash;
-
-  EncryptionKey._(this._keyBase64, this._keyHash);
-
-  /// Creates an EncryptionKey from a string.
-  ///
-  /// The string is converted to base64, and then a SHA256 hash is computed
-  /// by decoding the base64 string back to bytes and hashing those bytes.
-  /// The hash is then encoded as base64.
-  factory EncryptionKey.fromString(String key) {
-    // Convert string to bytes, then to base64
-    // This mimics: Buffer.from(encryptionKey as string).toString('base64')
-    final keyBytes = utf8.encode(key);
-    final keyBase64 = base64.encode(keyBytes);
-
-    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
-    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
-    final decodedBase64 = base64.decode(keyBase64);
-    final hash = crypto.sha256.convert(decodedBase64);
-    final keyHash = base64.encode(hash.bytes);
-
-    return EncryptionKey._(keyBase64, keyHash);
-  }
-
-  /// Creates an EncryptionKey from a buffer (List<int>).
-  ///
-  /// The buffer is converted to base64, and then a SHA256 hash is computed
-  /// by decoding the base64 string back to bytes and hashing those bytes.
-  /// The hash is then encoded as base64.
-  factory EncryptionKey.fromBuffer(List<int> buffer) {
-    // Convert buffer to base64
-    // This mimics: Buffer.from(encryptionKey).toString('base64')
-    final keyBase64 = base64.encode(buffer);
-
-    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
-    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
-    final decodedBase64 = base64.decode(keyBase64);
-    final hash = crypto.sha256.convert(decodedBase64);
-    final keyHash = base64.encode(hash.bytes);
-
-    return EncryptionKey._(keyBase64, keyHash);
-  }
-
-  /// Gets the base64-encoded encryption key.
-  String get keyBase64 => _keyBase64;
-
-  /// Gets the base64-encoded SHA256 hash of the encryption key.
-  String get keyHash => _keyHash;
 }

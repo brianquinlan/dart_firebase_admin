@@ -172,7 +172,7 @@ class UploadOptions {
   final Object? destination; // String or File
 
   /// A custom encryption key. See Customer-supplied Encryption Keys.
-  final String? encryptionKey;
+  final EncryptionKey? encryptionKey;
 
   /// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
   /// If null, the contentType is used to determine if the file should be gzipped (auto-detect).
@@ -511,7 +511,7 @@ typedef FileMetadata = storage_v1.Object;
 
 class FileOptions {
   final Crc32Generator? crc32cGenerator;
-  final String? encryptionKey;
+  final EncryptionKey? encryptionKey;
   final int? generation;
   final String? restoreToken;
   final String? kmsKeyName;
@@ -530,7 +530,7 @@ class FileOptions {
 
   FileOptions copyWith({
     Crc32Generator? crc32cGenerator,
-    String? encryptionKey,
+    EncryptionKey? encryptionKey,
     int? generation,
     String? restoreToken,
     String? kmsKeyName,
@@ -1031,10 +1031,10 @@ class DownloadOptions extends CreateReadStreamOptions {
 typedef SaveData = Object; // String, Uint8List, List<int>, or Stream<List<int>>
 
 class EncryptionKey {
-  final String _keyBase64;
-  final String _keyHash;
+  final String keyBase64;
+  final String keyHash;
 
-  EncryptionKey._(this._keyBase64, this._keyHash);
+  const EncryptionKey._(this.keyBase64, this.keyHash);
 
   /// Creates an EncryptionKey from a string.
   ///
@@ -1062,24 +1062,8 @@ class EncryptionKey {
   /// by decoding the base64 string back to bytes and hashing those bytes.
   /// The hash is then encoded as base64.
   factory EncryptionKey.fromBuffer(List<int> buffer) {
-    // Convert buffer to base64
-    // This mimics: Buffer.from(encryptionKey).toString('base64')
-    final keyBase64 = base64.encode(buffer);
-
-    // Create SHA256 hash by decoding the base64 string back to bytes and hashing
-    // This mimics: crypto.createHash('sha256').update(this.encryptionKeyBase64, 'base64').digest('base64')
-    final decodedBase64 = base64.decode(keyBase64);
-    final hash = crypto.sha256.convert(decodedBase64);
-    final keyHash = base64.encode(hash.bytes);
-
-    return EncryptionKey._(keyBase64, keyHash);
+    return EncryptionKey.fromString(base64.encode(buffer));
   }
-
-  /// Gets the base64-encoded encryption key.
-  String get keyBase64 => _keyBase64;
-
-  /// Gets the base64-encoded SHA256 hash of the encryption key.
-  String get keyHash => _keyHash;
 }
 
 /// Options when constructing an [HmacKey] handle.
