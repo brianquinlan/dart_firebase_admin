@@ -1,13 +1,15 @@
 part of '../googleapis_storage.dart';
 
-
-
 class _InternalSignedUrlConfig {
   final SignedUrlConfig signedConfig;
   final Bucket bucket;
-  final File? file;
+  final BucketFile? file;
 
-  _InternalSignedUrlConfig({required this.signedConfig, required this.bucket, this.file,});
+  _InternalSignedUrlConfig({
+    required this.signedConfig,
+    required this.bucket,
+    this.file,
+  });
 }
 
 /// Function used to sign the v4 `blobToSign` string.
@@ -22,7 +24,7 @@ typedef BlobSigner = Future<String> Function(String blobToSign);
 /// SDK `URLSigner` but for Dart.
 class URLSigner {
   final Bucket bucket;
-  final File? file;
+  final BucketFile? file;
 
   /// [clientEmail] is the service account email used in `X-Goog-Credential`.
   ///
@@ -32,27 +34,27 @@ class URLSigner {
   URLSigner._(this.bucket, this.file);
 
   getSignedUrl(SignedUrlConfig config) async {
-    final expiresInSeconds =
-        (config.expires.millisecondsSinceEpoch / 1000).floor();
+    final expiresInSeconds = (config.expires.millisecondsSinceEpoch / 1000)
+        .floor();
     final accessibleAtInSeconds =
         (config.accessibleAt?.millisecondsSinceEpoch ??
                 DateTime.now().millisecondsSinceEpoch / 1000)
             .floor();
 
     if (expiresInSeconds < accessibleAtInSeconds) {
-      // TODO: proper error
       throw ArgumentError(
-          'Expiration must be >= accessibleAt (in seconds since epoch).');
+        'Expiration must be >= accessibleAt (in seconds since epoch).',
+      );
     }
 
     final isVirtualHostedStyle = config.virtualHostedStyle ?? false;
     final customHost = config.cname != null
         ? config.cname!
         : isVirtualHostedStyle
-            // TODO: Check bucket id vs name
-            // TODO: Why is universeDomain optional?
-            ? 'https://${bucket.id}.storage.${bucket.storage.options.universeDomain}'
-            : null;
+        // TODO: Check bucket id vs name
+        // TODO: Why is universeDomain optional?
+        ? 'https://${bucket.id}.storage.${bucket.storage.options.universeDomain}'
+        : null;
 
     const secondsToMilliseconds = 1000;
     // Create internal config object with merged values
@@ -70,7 +72,8 @@ class URLSigner {
     };
 
     // Build the signed URL
-    final baseUrl = config.host?.toString() ??
+    final baseUrl =
+        config.host?.toString() ??
         internalConfig.signedConfig.cname ??
         bucket.storage.config.apiEndpoint;
 
@@ -83,14 +86,13 @@ class URLSigner {
 
     // Convert query params to query string
     final queryString = queryParams.entries
-        .map((e) =>
-            '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value.toString())}')
+        .map(
+          (e) =>
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value.toString())}',
+        )
         .join('&');
 
-    final finalUrl = signedUrl.replace(
-      path: resourcePath,
-      query: queryString,
-    );
+    final finalUrl = signedUrl.replace(path: resourcePath, query: queryString);
 
     // TODO: Implement this
     // We need to sign a blob using iam credentials service, which doesn't
@@ -102,12 +104,14 @@ class URLSigner {
   }
 
   Future<Map<String, Object>> _getSignedUrlV2(
-      _InternalSignedUrlConfig config) async {
+    _InternalSignedUrlConfig config,
+  ) async {
     return {};
   }
 
   Future<Map<String, Object>> _getSignedUrlV4(
-      _InternalSignedUrlConfig config) async {
+    _InternalSignedUrlConfig config,
+  ) async {
     return {};
   }
 
@@ -117,7 +121,7 @@ class URLSigner {
   /// - Else if [file] exists: returns `/${bucket}/${file}`
   /// - Else: returns `/${bucket}`
   // TODO: Check this is correct / encoded
-  String _getResourcePath(bool cname, Bucket bucket, File? file) {
+  String _getResourcePath(bool cname, Bucket bucket, BucketFile? file) {
     if (cname) {
       return '/${file?.id ?? ''}';
     } else if (file != null) {

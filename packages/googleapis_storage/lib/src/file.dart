@@ -5,12 +5,12 @@ final _httpsPublicUrlRegex = RegExp(
   r'^https://storage\.googleapis\.com/([a-z0-9_.-]+)/(.+)$',
 );
 
-class File extends ServiceObject<FileMetadata>
+class BucketFile extends ServiceObject<FileMetadata>
     with
-        GettableMixin<FileMetadata, File>,
+        GettableMixin<FileMetadata, BucketFile>,
         DeletableMixin<FileMetadata>,
         SettableMixin<FileMetadata> {
-  File._(this.bucket, this.name, [FileOptions? options])
+  BucketFile._(this.bucket, this.name, [FileOptions? options])
     : options = (options ?? const FileOptions()).copyWith(
         // Inherit from bucket's storage options crc32cGenerator (which has a default) if not specified in file options
         crc32cGenerator:
@@ -53,7 +53,7 @@ class File extends ServiceObject<FileMetadata>
     return uri.replace(path: name);
   }
 
-  factory File.from(
+  factory BucketFile.from(
     String publicUrlOrGsUrl,
     Storage storage, [
     FileOptions? options,
@@ -158,10 +158,13 @@ class File extends ServiceObject<FileMetadata>
   /// By default, this will copy the file to the same bucket, but you can choose
   /// to copy it to another Bucket by providing a Bucket or File object or a URL
   /// starting with "gs://". The generation of the file will not be preserved.
-  Future<File> copy(CopyDestination destination, {CopyOptions? options}) async {
+  Future<BucketFile> copy(
+    CopyDestination destination, {
+    CopyOptions? options,
+  }) async {
     final copyOptions = options ?? const CopyOptions();
     late Bucket destBucket;
-    late File newFile;
+    late BucketFile newFile;
 
     if (destination is FileCopyDestination) {
       destBucket = destination.file.bucket;
@@ -188,7 +191,7 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>((client) async {
+    return await api.execute((client) async {
       // Build destination metadata from options
       final destinationMetadata = storage_v1.Object()
         ..cacheControl = copyOptions.cacheControl
@@ -838,7 +841,7 @@ class File extends ServiceObject<FileMetadata>
     }
   }
 
-  File setEncryptionKey(EncryptionKey encryptionKey) {
+  BucketFile setEncryptionKey(EncryptionKey encryptionKey) {
     _encryptionKey = encryptionKey;
     return this;
   }
@@ -998,13 +1001,13 @@ class File extends ServiceObject<FileMetadata>
   /// The source and destination object IDs must be different.
   /// Overwriting the destination object is allowed by default, but can be prevented
   /// using preconditions.
-  Future<File> moveFileAtomic(
+  Future<BucketFile> moveFileAtomic(
     MoveFileAtomicDestination destination, {
     MoveOptions? options,
   }) async {
     final moveOptions = options ?? const MoveOptions();
     String destName;
-    File? newFile;
+    BucketFile? newFile;
 
     if (destination is PathMoveFileAtomicDestination) {
       // Check for gs:// URL format (but must be same bucket)
@@ -1042,7 +1045,7 @@ class File extends ServiceObject<FileMetadata>
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>((client) async {
+    return await api.execute<BucketFile>((client) async {
       final response = await client.objects.move(
         bucket.id,
         id,
@@ -1063,7 +1066,7 @@ class File extends ServiceObject<FileMetadata>
   /// so this method is a composition of [copy] (to the new location) and [delete]
   /// (from the old location). While unlikely, it is possible that an error could be
   /// triggered from either one of these API calls failing.
-  Future<File> move(CopyDestination destination, {MoveOptions? options}) async {
+  Future<BucketFile> move(CopyDestination destination, {MoveOptions? options}) async {
     final moveOptions = options ?? const MoveOptions();
 
     final copiedFile = await copy(
@@ -1082,7 +1085,7 @@ class File extends ServiceObject<FileMetadata>
     return copiedFile;
   }
 
-  Future<File> rename(
+  Future<BucketFile> rename(
     CopyDestination destinationFile, {
     MoveOptions? options,
   }) async {
@@ -1090,14 +1093,14 @@ class File extends ServiceObject<FileMetadata>
   }
 
   /// Restore a soft-deleted file.
-  Future<File> restore(RestoreFileOptions options) async {
+  Future<BucketFile> restore(RestoreFileOptions options) async {
     final api = ApiExecutor(
       bucket.storage,
       preconditionOptions: options,
       shouldRetryMutation: shouldRetryObjectMutation,
     );
 
-    return await api.execute<File>((client) async {
+    return await api.execute<BucketFile>((client) async {
       final response = await client.objects.restore(
         bucket.id,
         id,
@@ -1132,7 +1135,7 @@ class File extends ServiceObject<FileMetadata>
   ///   the copy operation (e.g., ifGenerationMatch).
   ///
   /// See https://cloud.google.com/storage/docs/encryption#customer-supplied
-  Future<File> rotateEncryptionKey([
+  Future<BucketFile> rotateEncryptionKey([
     RotateEncryptionKeyOptions? options,
   ]) async {
     final opts = options ?? const RotateEncryptionKeyOptions();

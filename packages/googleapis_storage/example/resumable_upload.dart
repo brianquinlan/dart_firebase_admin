@@ -40,7 +40,7 @@ void main() async {
     final uploadedFile = await bucket.upload(
       largeFile,
       UploadOptions(
-        destination: 'uploaded-three-mb-file.tif',
+        destination: UploadDestination.path('uploaded-three-mb-file.tif'),
         // Optional: set metadata
         metadata: FileMetadata()
           ..contentType = 'image/tiff'

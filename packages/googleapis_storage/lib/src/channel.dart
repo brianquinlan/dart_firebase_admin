@@ -1,8 +1,5 @@
 part of '../googleapis_storage.dart';
 
-// TODO: Where should this go?
-
-
 /// Create a channel object to interact with a Cloud Storage channel.
 ///
 /// See {@link https://cloud.google.com/storage/docs/object-change-notification| Object Change Notification}

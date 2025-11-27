@@ -1,7 +1,5 @@
 part of '../googleapis_storage.dart';
 
-
-
 class Bucket extends ServiceObject<BucketMetadata>
     with
         CreatableMixin<BucketMetadata, Bucket>,
@@ -205,8 +203,8 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   Future<void> combine({
-    required List<File> sources,
-    required File destination,
+    required List<BucketFile> sources,
+    required BucketFile destination,
     CombineOptions? options = const CombineOptions(),
   }) {
     // Validate inputs
@@ -421,9 +419,9 @@ class Bucket extends ServiceObject<BucketMetadata>
     });
   }
 
-  /// Create a [File] handle within this bucket.
-  File file(String name, [FileOptions? options]) {
-    return File._(this, name, options);
+  /// Create a [BucketFile] handle within this bucket.
+  BucketFile file(String name, [FileOptions? options]) {
+    return BucketFile._(this, name, options);
   }
 
   /// Delete files in this bucket matching the given options.
@@ -444,7 +442,7 @@ class Bucket extends ServiceObject<BucketMetadata>
           )
         : null;
 
-    Future<void> deleteFile(File file) async {
+    Future<void> deleteFile(BucketFile file) async {
       try {
         await file.delete(options: preconditionOptions);
       } catch (e) {
@@ -459,13 +457,13 @@ class Bucket extends ServiceObject<BucketMetadata>
     // Limit parallel operations using ParallelLimit
     final limit = ParallelLimit(maxConcurrency: maxParallelLimit);
 
-    Future<void> limitedDelete(File file) async {
+    Future<void> limitedDelete(BucketFile file) async {
       await limit.run(() => deleteFile(file));
     }
 
     final filesStream = getFilesStream(options);
     final completer = Completer<void>();
-    StreamSubscription<File>? subscription;
+    StreamSubscription<BucketFile>? subscription;
     var hasError = false;
 
     final queue = BoundedQueue<void>(
@@ -682,7 +680,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// Returns a record of `(files, nextQuery)` where:
   /// - `files`: List of File instances
   /// - `nextQuery`: Options for the next page (null if no more pages)
-  Future<(List<File> files, GetFilesOptions? nextQuery)> getFiles([
+  Future<(List<BucketFile> files, GetFilesOptions? nextQuery)> getFiles([
     GetFilesOptions? options = const GetFilesOptions(),
   ]) async {
     final opts = options ?? const GetFilesOptions();
@@ -690,7 +688,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
     if (autoPaginate) {
       // Collect all files from the stream
-      final files = <File>[];
+      final files = <BucketFile>[];
       await for (final file in getFilesStream(opts)) {
         files.add(file);
       }
@@ -744,13 +742,13 @@ class Bucket extends ServiceObject<BucketMetadata>
   ///
   /// Automatically handles pagination and yields files as they arrive.
   /// Returns a stream of files in this bucket.
-  Stream<File> getFilesStream([
+  Stream<BucketFile> getFilesStream([
     GetFilesOptions? options = const GetFilesOptions(),
   ]) {
     final opts = options ?? const GetFilesOptions();
     final api = ApiExecutor(storage);
 
-    return Streaming<File, GetFilesOptions>(
+    return Streaming<BucketFile, GetFilesOptions>(
       fetcher: (GetFilesOptions pageOptions) async {
         final response = await api.execute((client) async {
           // Use provided userProject or fall back to instance-level userProject
@@ -859,7 +857,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Make the bucket private (optionally including all files).
-  Future<List<File>> makePrivate([
+  Future<List<BucketFile>> makePrivate([
     MakeBucketPrivateOptions? options = const MakeBucketPrivateOptions(),
   ]) async {
     // Merge options.metadata with acl: null
@@ -894,7 +892,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 
   /// Make the bucket public (optionally including all files).
-  Future<List<File>> makePublic([
+  Future<List<BucketFile>> makePublic([
     MakeBucketPublicOptions? options = const MakeBucketPublicOptions(),
   ]) async {
     await acl.add(entity: 'allUsers', role: 'READER');
@@ -1022,7 +1020,7 @@ class Bucket extends ServiceObject<BucketMetadata>
   /// final bucket = storage.bucket('my-bucket');
   /// final file = await bucket.upload('/local/path/image.png');
   /// ```
-  Future<File> upload(io.File file, [UploadOptions? options]) async {
+  Future<BucketFile> upload(io.File file, [UploadOptions? options]) async {
     final opts = options ?? const UploadOptions();
 
     if (!await file.exists()) {
@@ -1030,31 +1028,32 @@ class Bucket extends ServiceObject<BucketMetadata>
     }
 
     // Determine destination File object
-    late File destinationFile;
-    if (opts.destination is File) {
-      destinationFile = opts.destination as File;
-    } else if (opts.destination is String) {
-      destinationFile = this.file(
-        opts.destination as String,
-        FileOptions(
-          encryptionKey: opts.encryptionKey,
-          kmsKeyName: opts.kmsKeyName,
-          preconditionOpts: opts.preconditionOpts,
-        ),
-      );
-    } else {
-      // Use basename of file path
-      final destination = file.absolute.path
-          .split(io.Platform.pathSeparator)
-          .last;
-      destinationFile = this.file(
-        destination,
-        FileOptions(
-          encryptionKey: opts.encryptionKey,
-          kmsKeyName: opts.kmsKeyName,
-          preconditionOpts: opts.preconditionOpts,
-        ),
-      );
+    late BucketFile destinationFile;
+    switch (opts.destination) {
+      case FileUploadDestination(:final file):
+        destinationFile = file;
+      case PathUploadDestination(:final path):
+        destinationFile = this.file(
+          path,
+          FileOptions(
+            encryptionKey: opts.encryptionKey,
+            kmsKeyName: opts.kmsKeyName,
+            preconditionOpts: opts.preconditionOpts,
+          ),
+        );
+      case null:
+        // Use basename of file path
+        final destination = file.absolute.path
+            .split(io.Platform.pathSeparator)
+            .last;
+        destinationFile = this.file(
+          destination,
+          FileOptions(
+            encryptionKey: opts.encryptionKey,
+            kmsKeyName: opts.kmsKeyName,
+            preconditionOpts: opts.preconditionOpts,
+          ),
+        );
     }
 
     // Use ApiExecutor for retry logic
@@ -1074,7 +1073,7 @@ class Bucket extends ServiceObject<BucketMetadata>
 
   Future<void> _uploadFile(
     io.File file,
-    File destinationFile,
+    BucketFile destinationFile,
     UploadOptions options,
   ) async {
     final fileStream = file.openRead();
@@ -1128,14 +1127,14 @@ class Bucket extends ServiceObject<BucketMetadata>
     }
   }
 
-  Future<List<File>> _makeAllFilesPublicPrivate(
+  Future<List<BucketFile>> _makeAllFilesPublicPrivate(
     MakeAllFilesPublicPrivateOptions options,
   ) async {
     const maxParallelLimit = 10;
     final errors = <Error>[];
-    final updatedFiles = <File>[];
+    final updatedFiles = <BucketFile>[];
 
-    Future<void> processFile(File file) async {
+    Future<void> processFile(BucketFile file) async {
       try {
         if (options.public == true) {
           await file.makePublic();
@@ -1152,7 +1151,7 @@ class Bucket extends ServiceObject<BucketMetadata>
     }
 
     // Collect all files from the stream
-    final files = <File>[];
+    final files = <BucketFile>[];
     final getFilesOptions = GetFilesOptions(userProject: options.userProject);
 
     await for (final file in getFilesStream(getFilesOptions)) {
@@ -1172,7 +1171,6 @@ class Bucket extends ServiceObject<BucketMetadata>
   }
 }
 
-
 // extension on storage_v1.StorageApi {
 //   storage_v1.Bucket bucketFromName(String name) =>
 //       storage_v1.Bucket()..name = name;
@@ -1186,5 +1184,3 @@ SignedUrlMethod _bucketActionToHttpMethod(String action) {
       throw ArgumentError('Invalid action: $action');
   }
 }
-
-

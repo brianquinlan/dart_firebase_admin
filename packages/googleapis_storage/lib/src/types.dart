@@ -334,12 +334,13 @@ abstract class EnableLoggingOptions with _$EnableLoggingOptions {
 /// Options for uploading a file from the filesystem.
 @freezed
 abstract class UploadOptions with _$UploadOptions {
-  /// The place to save your file. If given a String, the file will be uploaded to the bucket
+  /// The place to save your file. If given a String path, the file will be uploaded to the bucket
   /// using the string as a filename. When given a File object, your local file will be uploaded
   /// to the File object's bucket and under the File object's name. If omitted, the file is uploaded
   /// to your bucket using the name of the local file.
   const factory UploadOptions({
-    Object? destination, // String or File
+    UploadDestination? destination,
+
     /// A custom encryption key. See Customer-supplied Encryption Keys.
     EncryptionKey? encryptionKey,
 
@@ -1714,7 +1715,7 @@ sealed class CopyDestination with _$CopyDestination {
   const factory CopyDestination.path(String path) = PathCopyDestination;
 
   /// Copy to the given [File] object.
-  const factory CopyDestination.file(File file) = FileCopyDestination;
+  const factory CopyDestination.file(BucketFile file) = FileCopyDestination;
 
   /// Copy to the given [Bucket] object.
   const factory CopyDestination.bucket(Bucket bucket) = BucketCopyDestination;
@@ -1728,7 +1729,7 @@ sealed class MoveFileAtomicDestination with _$MoveFileAtomicDestination {
       PathMoveFileAtomicDestination;
 
   /// Move to the given [File] object.
-  const factory MoveFileAtomicDestination.file(File file) =
+  const factory MoveFileAtomicDestination.file(BucketFile file) =
       FileMoveFileAtomicDestination;
 }
 
@@ -1736,6 +1737,16 @@ sealed class MoveFileAtomicDestination with _$MoveFileAtomicDestination {
 ///
 /// Uses [CopyDestination] since move operations internally use copy.
 typedef MoveDestination = CopyDestination;
+
+/// Sealed class for type-safe destination inputs for upload operations.
+@freezed
+sealed class UploadDestination with _$UploadDestination {
+  /// Upload to a file at the given path.
+  const factory UploadDestination.path(String path) = PathUploadDestination;
+
+  /// Upload to the given [File] object.
+  const factory UploadDestination.file(BucketFile file) = FileUploadDestination;
+}
 
 /// Options for uploading many files.
 @freezed

@@ -1493,8 +1493,7 @@ as int?,
 /// @nodoc
 mixin _$UploadOptions {
 
- Object? get destination;// String or File
-/// A custom encryption key. See Customer-supplied Encryption Keys.
+ UploadDestination? get destination;/// A custom encryption key. See Customer-supplied Encryption Keys.
  EncryptionKey? get encryptionKey;/// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
 /// If null, the contentType is used to determine if the file should be gzipped (auto-detect).
  bool? get gzip;/// The name of the Cloud KMS key that will be used to encrypt the object.
@@ -1524,12 +1523,12 @@ $UploadOptionsCopyWith<UploadOptions> get copyWith => _$UploadOptionsCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UploadOptions&&const DeepCollectionEquality().equals(other.destination, destination)&&(identical(other.encryptionKey, encryptionKey) || other.encryptionKey == encryptionKey)&&(identical(other.gzip, gzip) || other.gzip == gzip)&&(identical(other.kmsKeyName, kmsKeyName) || other.kmsKeyName == kmsKeyName)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.offset, offset) || other.offset == offset)&&(identical(other.predefinedAcl, predefinedAcl) || other.predefinedAcl == predefinedAcl)&&(identical(other.private, private) || other.private == private)&&(identical(other.public, public) || other.public == public)&&(identical(other.resumable, resumable) || other.resumable == resumable)&&(identical(other.timeout, timeout) || other.timeout == timeout)&&(identical(other.uri, uri) || other.uri == uri)&&(identical(other.userProject, userProject) || other.userProject == userProject)&&(identical(other.validation, validation) || other.validation == validation)&&(identical(other.preconditionOpts, preconditionOpts) || other.preconditionOpts == preconditionOpts)&&(identical(other.onUploadProgress, onUploadProgress) || other.onUploadProgress == onUploadProgress)&&(identical(other.chunkSize, chunkSize) || other.chunkSize == chunkSize)&&(identical(other.highWaterMark, highWaterMark) || other.highWaterMark == highWaterMark)&&(identical(other.isPartialUpload, isPartialUpload) || other.isPartialUpload == isPartialUpload));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UploadOptions&&(identical(other.destination, destination) || other.destination == destination)&&(identical(other.encryptionKey, encryptionKey) || other.encryptionKey == encryptionKey)&&(identical(other.gzip, gzip) || other.gzip == gzip)&&(identical(other.kmsKeyName, kmsKeyName) || other.kmsKeyName == kmsKeyName)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.offset, offset) || other.offset == offset)&&(identical(other.predefinedAcl, predefinedAcl) || other.predefinedAcl == predefinedAcl)&&(identical(other.private, private) || other.private == private)&&(identical(other.public, public) || other.public == public)&&(identical(other.resumable, resumable) || other.resumable == resumable)&&(identical(other.timeout, timeout) || other.timeout == timeout)&&(identical(other.uri, uri) || other.uri == uri)&&(identical(other.userProject, userProject) || other.userProject == userProject)&&(identical(other.validation, validation) || other.validation == validation)&&(identical(other.preconditionOpts, preconditionOpts) || other.preconditionOpts == preconditionOpts)&&(identical(other.onUploadProgress, onUploadProgress) || other.onUploadProgress == onUploadProgress)&&(identical(other.chunkSize, chunkSize) || other.chunkSize == chunkSize)&&(identical(other.highWaterMark, highWaterMark) || other.highWaterMark == highWaterMark)&&(identical(other.isPartialUpload, isPartialUpload) || other.isPartialUpload == isPartialUpload));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,const DeepCollectionEquality().hash(destination),encryptionKey,gzip,kmsKeyName,metadata,offset,predefinedAcl,private,public,resumable,timeout,uri,userProject,validation,preconditionOpts,onUploadProgress,chunkSize,highWaterMark,isPartialUpload]);
+int get hashCode => Object.hashAll([runtimeType,destination,encryptionKey,gzip,kmsKeyName,metadata,offset,predefinedAcl,private,public,resumable,timeout,uri,userProject,validation,preconditionOpts,onUploadProgress,chunkSize,highWaterMark,isPartialUpload]);
 
 @override
 String toString() {
@@ -1544,11 +1543,11 @@ abstract mixin class $UploadOptionsCopyWith<$Res>  {
   factory $UploadOptionsCopyWith(UploadOptions value, $Res Function(UploadOptions) _then) = _$UploadOptionsCopyWithImpl;
 @useResult
 $Res call({
- Object? destination, EncryptionKey? encryptionKey, bool? gzip, String? kmsKeyName, FileMetadata? metadata, int? offset, PredefinedAcl? predefinedAcl, bool? private, bool? public, bool? resumable, int? timeout, String? uri, String? userProject, ValidationType? validation, PreconditionOptions? preconditionOpts, void Function(UploadProgress)? onUploadProgress, int? chunkSize, int? highWaterMark, bool? isPartialUpload
+ UploadDestination? destination, EncryptionKey? encryptionKey, bool? gzip, String? kmsKeyName, FileMetadata? metadata, int? offset, PredefinedAcl? predefinedAcl, bool? private, bool? public, bool? resumable, int? timeout, String? uri, String? userProject, ValidationType? validation, PreconditionOptions? preconditionOpts, void Function(UploadProgress)? onUploadProgress, int? chunkSize, int? highWaterMark, bool? isPartialUpload
 });
 
 
-$EncryptionKeyCopyWith<$Res>? get encryptionKey;
+$UploadDestinationCopyWith<$Res>? get destination;$EncryptionKeyCopyWith<$Res>? get encryptionKey;
 
 }
 /// @nodoc
@@ -1563,7 +1562,8 @@ class _$UploadOptionsCopyWithImpl<$Res>
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? destination = freezed,Object? encryptionKey = freezed,Object? gzip = freezed,Object? kmsKeyName = freezed,Object? metadata = freezed,Object? offset = freezed,Object? predefinedAcl = freezed,Object? private = freezed,Object? public = freezed,Object? resumable = freezed,Object? timeout = freezed,Object? uri = freezed,Object? userProject = freezed,Object? validation = freezed,Object? preconditionOpts = freezed,Object? onUploadProgress = freezed,Object? chunkSize = freezed,Object? highWaterMark = freezed,Object? isPartialUpload = freezed,}) {
   return _then(_self.copyWith(
-destination: freezed == destination ? _self.destination : destination ,encryptionKey: freezed == encryptionKey ? _self.encryptionKey : encryptionKey // ignore: cast_nullable_to_non_nullable
+destination: freezed == destination ? _self.destination : destination // ignore: cast_nullable_to_non_nullable
+as UploadDestination?,encryptionKey: freezed == encryptionKey ? _self.encryptionKey : encryptionKey // ignore: cast_nullable_to_non_nullable
 as EncryptionKey?,gzip: freezed == gzip ? _self.gzip : gzip // ignore: cast_nullable_to_non_nullable
 as bool?,kmsKeyName: freezed == kmsKeyName ? _self.kmsKeyName : kmsKeyName // ignore: cast_nullable_to_non_nullable
 as String?,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
@@ -1588,6 +1588,18 @@ as bool?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
+$UploadDestinationCopyWith<$Res>? get destination {
+    if (_self.destination == null) {
+    return null;
+  }
+
+  return $UploadDestinationCopyWith<$Res>(_self.destination!, (value) {
+    return _then(_self.copyWith(destination: value));
+  });
+}/// Create a copy of UploadOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
 $EncryptionKeyCopyWith<$Res>? get encryptionKey {
     if (_self.encryptionKey == null) {
     return null;
@@ -1608,8 +1620,7 @@ class _UploadOptions implements UploadOptions {
   const _UploadOptions({this.destination, this.encryptionKey, this.gzip, this.kmsKeyName, this.metadata, this.offset, this.predefinedAcl, this.private, this.public, this.resumable, this.timeout, this.uri, this.userProject, this.validation, this.preconditionOpts, this.onUploadProgress, this.chunkSize, this.highWaterMark, this.isPartialUpload});
   
 
-@override final  Object? destination;
-// String or File
+@override final  UploadDestination? destination;
 /// A custom encryption key. See Customer-supplied Encryption Keys.
 @override final  EncryptionKey? encryptionKey;
 /// Automatically gzip the file. This will set metadata.contentEncoding to 'gzip'.
@@ -1658,12 +1669,12 @@ _$UploadOptionsCopyWith<_UploadOptions> get copyWith => __$UploadOptionsCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UploadOptions&&const DeepCollectionEquality().equals(other.destination, destination)&&(identical(other.encryptionKey, encryptionKey) || other.encryptionKey == encryptionKey)&&(identical(other.gzip, gzip) || other.gzip == gzip)&&(identical(other.kmsKeyName, kmsKeyName) || other.kmsKeyName == kmsKeyName)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.offset, offset) || other.offset == offset)&&(identical(other.predefinedAcl, predefinedAcl) || other.predefinedAcl == predefinedAcl)&&(identical(other.private, private) || other.private == private)&&(identical(other.public, public) || other.public == public)&&(identical(other.resumable, resumable) || other.resumable == resumable)&&(identical(other.timeout, timeout) || other.timeout == timeout)&&(identical(other.uri, uri) || other.uri == uri)&&(identical(other.userProject, userProject) || other.userProject == userProject)&&(identical(other.validation, validation) || other.validation == validation)&&(identical(other.preconditionOpts, preconditionOpts) || other.preconditionOpts == preconditionOpts)&&(identical(other.onUploadProgress, onUploadProgress) || other.onUploadProgress == onUploadProgress)&&(identical(other.chunkSize, chunkSize) || other.chunkSize == chunkSize)&&(identical(other.highWaterMark, highWaterMark) || other.highWaterMark == highWaterMark)&&(identical(other.isPartialUpload, isPartialUpload) || other.isPartialUpload == isPartialUpload));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UploadOptions&&(identical(other.destination, destination) || other.destination == destination)&&(identical(other.encryptionKey, encryptionKey) || other.encryptionKey == encryptionKey)&&(identical(other.gzip, gzip) || other.gzip == gzip)&&(identical(other.kmsKeyName, kmsKeyName) || other.kmsKeyName == kmsKeyName)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.offset, offset) || other.offset == offset)&&(identical(other.predefinedAcl, predefinedAcl) || other.predefinedAcl == predefinedAcl)&&(identical(other.private, private) || other.private == private)&&(identical(other.public, public) || other.public == public)&&(identical(other.resumable, resumable) || other.resumable == resumable)&&(identical(other.timeout, timeout) || other.timeout == timeout)&&(identical(other.uri, uri) || other.uri == uri)&&(identical(other.userProject, userProject) || other.userProject == userProject)&&(identical(other.validation, validation) || other.validation == validation)&&(identical(other.preconditionOpts, preconditionOpts) || other.preconditionOpts == preconditionOpts)&&(identical(other.onUploadProgress, onUploadProgress) || other.onUploadProgress == onUploadProgress)&&(identical(other.chunkSize, chunkSize) || other.chunkSize == chunkSize)&&(identical(other.highWaterMark, highWaterMark) || other.highWaterMark == highWaterMark)&&(identical(other.isPartialUpload, isPartialUpload) || other.isPartialUpload == isPartialUpload));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,const DeepCollectionEquality().hash(destination),encryptionKey,gzip,kmsKeyName,metadata,offset,predefinedAcl,private,public,resumable,timeout,uri,userProject,validation,preconditionOpts,onUploadProgress,chunkSize,highWaterMark,isPartialUpload]);
+int get hashCode => Object.hashAll([runtimeType,destination,encryptionKey,gzip,kmsKeyName,metadata,offset,predefinedAcl,private,public,resumable,timeout,uri,userProject,validation,preconditionOpts,onUploadProgress,chunkSize,highWaterMark,isPartialUpload]);
 
 @override
 String toString() {
@@ -1678,11 +1689,11 @@ abstract mixin class _$UploadOptionsCopyWith<$Res> implements $UploadOptionsCopy
   factory _$UploadOptionsCopyWith(_UploadOptions value, $Res Function(_UploadOptions) _then) = __$UploadOptionsCopyWithImpl;
 @override @useResult
 $Res call({
- Object? destination, EncryptionKey? encryptionKey, bool? gzip, String? kmsKeyName, FileMetadata? metadata, int? offset, PredefinedAcl? predefinedAcl, bool? private, bool? public, bool? resumable, int? timeout, String? uri, String? userProject, ValidationType? validation, PreconditionOptions? preconditionOpts, void Function(UploadProgress)? onUploadProgress, int? chunkSize, int? highWaterMark, bool? isPartialUpload
+ UploadDestination? destination, EncryptionKey? encryptionKey, bool? gzip, String? kmsKeyName, FileMetadata? metadata, int? offset, PredefinedAcl? predefinedAcl, bool? private, bool? public, bool? resumable, int? timeout, String? uri, String? userProject, ValidationType? validation, PreconditionOptions? preconditionOpts, void Function(UploadProgress)? onUploadProgress, int? chunkSize, int? highWaterMark, bool? isPartialUpload
 });
 
 
-@override $EncryptionKeyCopyWith<$Res>? get encryptionKey;
+@override $UploadDestinationCopyWith<$Res>? get destination;@override $EncryptionKeyCopyWith<$Res>? get encryptionKey;
 
 }
 /// @nodoc
@@ -1697,7 +1708,8 @@ class __$UploadOptionsCopyWithImpl<$Res>
 /// with the given fields replaced by the non-null parameter values.
 @override @pragma('vm:prefer-inline') $Res call({Object? destination = freezed,Object? encryptionKey = freezed,Object? gzip = freezed,Object? kmsKeyName = freezed,Object? metadata = freezed,Object? offset = freezed,Object? predefinedAcl = freezed,Object? private = freezed,Object? public = freezed,Object? resumable = freezed,Object? timeout = freezed,Object? uri = freezed,Object? userProject = freezed,Object? validation = freezed,Object? preconditionOpts = freezed,Object? onUploadProgress = freezed,Object? chunkSize = freezed,Object? highWaterMark = freezed,Object? isPartialUpload = freezed,}) {
   return _then(_UploadOptions(
-destination: freezed == destination ? _self.destination : destination ,encryptionKey: freezed == encryptionKey ? _self.encryptionKey : encryptionKey // ignore: cast_nullable_to_non_nullable
+destination: freezed == destination ? _self.destination : destination // ignore: cast_nullable_to_non_nullable
+as UploadDestination?,encryptionKey: freezed == encryptionKey ? _self.encryptionKey : encryptionKey // ignore: cast_nullable_to_non_nullable
 as EncryptionKey?,gzip: freezed == gzip ? _self.gzip : gzip // ignore: cast_nullable_to_non_nullable
 as bool?,kmsKeyName: freezed == kmsKeyName ? _self.kmsKeyName : kmsKeyName // ignore: cast_nullable_to_non_nullable
 as String?,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
@@ -1720,6 +1732,18 @@ as bool?,
 }
 
 /// Create a copy of UploadOptions
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UploadDestinationCopyWith<$Res>? get destination {
+    if (_self.destination == null) {
+    return null;
+  }
+
+  return $UploadDestinationCopyWith<$Res>(_self.destination!, (value) {
+    return _then(_self.copyWith(destination: value));
+  });
+}/// Create a copy of UploadOptions
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -8172,7 +8196,7 @@ class FileCopyDestination implements CopyDestination {
   const FileCopyDestination(this.file);
   
 
- final  File file;
+ final  BucketFile file;
 
 /// Create a copy of CopyDestination
 /// with the given fields replaced by the non-null parameter values.
@@ -8204,7 +8228,7 @@ abstract mixin class $FileCopyDestinationCopyWith<$Res> implements $CopyDestinat
   factory $FileCopyDestinationCopyWith(FileCopyDestination value, $Res Function(FileCopyDestination) _then) = _$FileCopyDestinationCopyWithImpl;
 @useResult
 $Res call({
- File file
+ BucketFile file
 });
 
 
@@ -8224,7 +8248,7 @@ class _$FileCopyDestinationCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') $Res call({Object? file = null,}) {
   return _then(FileCopyDestination(
 null == file ? _self.file : file // ignore: cast_nullable_to_non_nullable
-as File,
+as BucketFile,
   ));
 }
 
@@ -8401,7 +8425,7 @@ class FileMoveFileAtomicDestination implements MoveFileAtomicDestination {
   const FileMoveFileAtomicDestination(this.file);
   
 
- final  File file;
+ final  BucketFile file;
 
 /// Create a copy of MoveFileAtomicDestination
 /// with the given fields replaced by the non-null parameter values.
@@ -8433,7 +8457,7 @@ abstract mixin class $FileMoveFileAtomicDestinationCopyWith<$Res> implements $Mo
   factory $FileMoveFileAtomicDestinationCopyWith(FileMoveFileAtomicDestination value, $Res Function(FileMoveFileAtomicDestination) _then) = _$FileMoveFileAtomicDestinationCopyWithImpl;
 @useResult
 $Res call({
- File file
+ BucketFile file
 });
 
 
@@ -8453,7 +8477,170 @@ class _$FileMoveFileAtomicDestinationCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') $Res call({Object? file = null,}) {
   return _then(FileMoveFileAtomicDestination(
 null == file ? _self.file : file // ignore: cast_nullable_to_non_nullable
-as File,
+as BucketFile,
+  ));
+}
+
+
+}
+
+/// @nodoc
+mixin _$UploadDestination {
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UploadDestination);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'UploadDestination()';
+}
+
+
+}
+
+/// @nodoc
+class $UploadDestinationCopyWith<$Res>  {
+$UploadDestinationCopyWith(UploadDestination _, $Res Function(UploadDestination) __);
+}
+
+
+
+/// @nodoc
+
+
+class PathUploadDestination implements UploadDestination {
+  const PathUploadDestination(this.path);
+  
+
+ final  String path;
+
+/// Create a copy of UploadDestination
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PathUploadDestinationCopyWith<PathUploadDestination> get copyWith => _$PathUploadDestinationCopyWithImpl<PathUploadDestination>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PathUploadDestination&&(identical(other.path, path) || other.path == path));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,path);
+
+@override
+String toString() {
+  return 'UploadDestination.path(path: $path)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PathUploadDestinationCopyWith<$Res> implements $UploadDestinationCopyWith<$Res> {
+  factory $PathUploadDestinationCopyWith(PathUploadDestination value, $Res Function(PathUploadDestination) _then) = _$PathUploadDestinationCopyWithImpl;
+@useResult
+$Res call({
+ String path
+});
+
+
+
+
+}
+/// @nodoc
+class _$PathUploadDestinationCopyWithImpl<$Res>
+    implements $PathUploadDestinationCopyWith<$Res> {
+  _$PathUploadDestinationCopyWithImpl(this._self, this._then);
+
+  final PathUploadDestination _self;
+  final $Res Function(PathUploadDestination) _then;
+
+/// Create a copy of UploadDestination
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? path = null,}) {
+  return _then(PathUploadDestination(
+null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class FileUploadDestination implements UploadDestination {
+  const FileUploadDestination(this.file);
+  
+
+ final  BucketFile file;
+
+/// Create a copy of UploadDestination
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FileUploadDestinationCopyWith<FileUploadDestination> get copyWith => _$FileUploadDestinationCopyWithImpl<FileUploadDestination>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileUploadDestination&&(identical(other.file, file) || other.file == file));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,file);
+
+@override
+String toString() {
+  return 'UploadDestination.file(file: $file)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FileUploadDestinationCopyWith<$Res> implements $UploadDestinationCopyWith<$Res> {
+  factory $FileUploadDestinationCopyWith(FileUploadDestination value, $Res Function(FileUploadDestination) _then) = _$FileUploadDestinationCopyWithImpl;
+@useResult
+$Res call({
+ BucketFile file
+});
+
+
+
+
+}
+/// @nodoc
+class _$FileUploadDestinationCopyWithImpl<$Res>
+    implements $FileUploadDestinationCopyWith<$Res> {
+  _$FileUploadDestinationCopyWithImpl(this._self, this._then);
+
+  final FileUploadDestination _self;
+  final $Res Function(FileUploadDestination) _then;
+
+/// Create a copy of UploadDestination
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? file = null,}) {
+  return _then(FileUploadDestination(
+null == file ? _self.file : file // ignore: cast_nullable_to_non_nullable
+as BucketFile,
   ));
 }
 

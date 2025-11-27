@@ -298,7 +298,7 @@ class TransferManager {
   ///   TransferSource.files(['/local/path/file1.txt', '/local/path/file2.txt']),
   /// );
   /// ```
-  Future<List<File>> uploadManyFiles(
+  Future<List<BucketFile>> uploadManyFiles(
     TransferSource filePathsOrDirectory, [
     UploadManyFilesOptions options = const UploadManyFilesOptions(),
   ]) async {
@@ -314,7 +314,7 @@ class TransferManager {
     final limit = ParallelLimit(
       maxConcurrency: options.concurrencyLimit ?? _defaultParallelUploadLimit,
     );
-    final futures = <Future<File>>[];
+    final futures = <Future<BucketFile>>[];
 
     // Get all paths from TransferSource
     final allPaths = <String>[];
@@ -367,7 +367,7 @@ class TransferManager {
       maxConcurrency: options.concurrencyLimit ?? _defaultParallelDownloadLimit,
     );
     final futures = <Future<List<int>>>[];
-    final files = <File>[];
+    final files = <BucketFile>[];
 
     // Get files based on TransferSource
     switch (filesOrFolder) {
@@ -435,7 +435,7 @@ class TransferManager {
   /// );
   /// ```
   Future<List<int>?> downloadFileInChunks(
-    File fileOrName, [
+    BucketFile fileOrName, [
     DownloadFileInChunksOptions options = const DownloadFileInChunksOptions(),
   ]) async {
     var chunkSize = options.chunkSizeBytes ?? _downloadInChunksDefaultChunkSize;
