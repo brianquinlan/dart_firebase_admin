@@ -224,12 +224,12 @@ void storageTests() {
         );
 
         expect(hmacKey, isA<HmacKey>());
-        expect(hmacKey.accessId, isNotNull);
-        expect(hmacKey.accessId, isNotEmpty);
+        expect(hmacKey.id, isNotNull);
+        expect(hmacKey.id, isNotEmpty);
 
         final metadata = hmacKey.metadata;
         expect(metadata, isNotNull);
-        expect(metadata.accessId, equals(hmacKey.accessId));
+        expect(metadata.id, equals(hmacKey.id));
         expect(metadata.state, equals('ACTIVE'));
         expect(metadata.projectId, equals(projectId));
         expect(metadata.serviceAccountEmail, equals(serviceAccountEmail));
@@ -288,10 +288,10 @@ void storageTests() {
 
         // Verify our created key is in the list
         final foundKey = keys.firstWhere(
-          (k) => k.id == createdKey!.accessId,
+          (k) => k.id == createdKey!.id,
           orElse: () => throw Exception('Created key not found'),
         );
-        expect(foundKey.id, equals(createdKey.accessId));
+        expect(foundKey.id, equals(createdKey.id));
       } finally {
         if (createdKey != null) {
           try {
@@ -339,10 +339,10 @@ void storageTests() {
 
         // Our created key should be in the list
         final foundKey = keys.firstWhere(
-          (k) => k.id == createdKey!.accessId,
+          (k) => k.id == createdKey!.id,
           orElse: () => throw Exception('Created key not found'),
         );
-        expect(foundKey.id, equals(createdKey.accessId));
+        expect(foundKey.id, equals(createdKey.id));
       } finally {
         if (createdKey != null) {
           try {
@@ -371,7 +371,7 @@ void storageTests() {
           serviceAccountEmail!,
           CreateHmacKeyOptions(projectId: projectId),
         );
-        final accessId = createdKey.accessId;
+        final id = createdKey.id;
 
         // Deactivate and delete
         await createdKey.setMetadata(
@@ -387,7 +387,7 @@ void storageTests() {
           ),
         );
 
-        final foundDeleted = activeKeys.any((k) => k.id == accessId);
+        final foundDeleted = activeKeys.any((k) => k.id == id);
         expect(foundDeleted, isFalse, reason: 'Deleted key should not appear');
 
         // Get keys with showDeletedKeys (should include deleted)
@@ -460,7 +460,7 @@ void storageTests() {
         ),
       )) {
         expect(key, isA<HmacKey>());
-        expect(key.accessId, isNotNull);
+        expect(key.id, isNotNull);
         keys.add(key);
         // Limit to first 10 to avoid long test runs
         if (keys.length >= 10) break;
@@ -485,7 +485,7 @@ void storageTests() {
 
         // Get metadata using getMetadata
         final metadata = await createdKey.getMetadata();
-        expect(metadata.accessId, equals(createdKey.accessId));
+        expect(metadata.id, equals(createdKey.id));
         expect(metadata.state, equals('ACTIVE'));
         expect(metadata.serviceAccountEmail, equals(serviceAccountEmail));
       } finally {

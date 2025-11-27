@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:googleapis/storage/v1.dart' as storage_v1;
 import 'package:googleapis_storage/googleapis_storage.dart';
-import 'package:googleapis_storage/src/internal/api.dart';
-import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
@@ -355,8 +353,9 @@ void main() {
         final bucket = storage.bucket('test-bucket', bucketOptions);
 
         expect(bucket, isA<Bucket>());
-        expect(bucket.options.userProject, 'my-project');
-        expect(bucket.options.kmsKeyName, 'my-key');
+        // In Node.js, only userProject is exposed on the bucket instance
+        expect(bucket.userProject, 'my-project');
+        // kmsKeyName is not exposed on bucket (only used when creating files)
       });
 
       test(
@@ -365,8 +364,8 @@ void main() {
           final storage = Storage(const StorageOptions());
           final bucket = storage.bucket('test-bucket');
 
-          expect(bucket.options, isA<BucketOptions>());
-          expect(bucket.options.userProject, isNull);
+          expect(bucket, isA<Bucket>());
+          expect(bucket.userProject, isNull);
         },
       );
 
@@ -466,7 +465,7 @@ void main() {
       test('should create HmacKey with correct accessId', () {
         final storage = Storage(_TestStorageOptions(projectId: 'test-project'));
         final hmacKey = storage.hmacKey('my-access-id');
-        expect(hmacKey.accessId, 'my-access-id');
+        expect(hmacKey.id, 'my-access-id');
       });
 
       test('should create HmacKey with HmacKeyOptions', () {
@@ -682,7 +681,7 @@ void main() {
         );
 
         expect(result, isA<HmacKey>());
-        expect(result.accessId, 'ACCESS_ID');
+        expect(result.id, 'ACCESS_ID');
         expect(result.metadata.projectId, 'test-project');
         verify(
           () => mockHmacKeys.create(
@@ -1119,8 +1118,8 @@ void main() {
         );
 
         expect(keys, hasLength(2));
-        expect(keys[0].accessId, 'key-1');
-        expect(keys[1].accessId, 'key-2');
+        expect(keys[0].id, 'key-1');
+        expect(keys[1].id, 'key-2');
         expect(nextQuery, isNull);
       });
 
@@ -1152,7 +1151,7 @@ void main() {
         );
 
         expect(keys, hasLength(1));
-        expect(keys[0].accessId, 'key-1');
+        expect(keys[0].id, 'key-1');
         expect(nextQuery, isNotNull);
         expect(nextQuery?.pageToken, 'token-1');
       });
@@ -1240,8 +1239,8 @@ void main() {
         }
 
         expect(keys, hasLength(2));
-        expect(keys[0].accessId, 'key-1');
-        expect(keys[1].accessId, 'key-2');
+        expect(keys[0].id, 'key-1');
+        expect(keys[1].id, 'key-2');
       });
 
       test('should stream HMAC keys with pagination', () async {
@@ -1292,8 +1291,8 @@ void main() {
         }
 
         expect(keys, hasLength(2));
-        expect(keys[0].accessId, 'key-1');
-        expect(keys[1].accessId, 'key-2');
+        expect(keys[0].id, 'key-1');
+        expect(keys[1].id, 'key-2');
       });
     });
   });
