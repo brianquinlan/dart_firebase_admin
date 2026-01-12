@@ -16,8 +16,8 @@ class RateLimiter {
     this._multiplier,
     this._multiplierMillis,
     this._maximumCapacity,
-  )   : _availableTokens = _initialCapacity.toDouble(),
-        _lastRefillTime = DateTime.now().millisecondsSinceEpoch;
+  ) : _availableTokens = _initialCapacity.toDouble(),
+      _lastRefillTime = DateTime.now().millisecondsSinceEpoch;
 
   final int _initialCapacity;
   final double _multiplier;
@@ -70,12 +70,9 @@ class RateLimiter {
     final elapsedTime = now - _lastRefillTime;
 
     final capacity = _currentCapacity;
-    final tokensToAdd = (elapsedTime * capacity / 1000);
+    final tokensToAdd = elapsedTime * capacity / 1000;
 
-    _availableTokens = math.min(
-      _availableTokens + tokensToAdd,
-      capacity,
-    );
+    _availableTokens = math.min(_availableTokens + tokensToAdd, capacity);
 
     _lastRefillTime = now;
   }
@@ -86,7 +83,7 @@ class RateLimiter {
     final delayMs = _getNextRequestDelayMs(requestTokens);
 
     if (delayMs > 0) {
-      await Future.delayed(Duration(milliseconds: delayMs));
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
       _refillTokens();
     }
 
