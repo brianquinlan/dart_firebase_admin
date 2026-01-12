@@ -47,9 +47,20 @@ class RateLimiter {
     return _availableTokens;
   }
 
+  /// Tries to make the number of operations. Returns true if the request
+  /// succeeded and false otherwise.
+  bool tryMakeRequest(int numOperations) {
+    _refillTokens();
+    if (numOperations <= _availableTokens) {
+      _availableTokens -= numOperations;
+      return true;
+    }
+    return false;
+  }
+
   /// Returns the number of ms needed to refill to the specified number of
   /// tokens, or 0 if capacity is already available.
-  int _getNextRequestDelayMs(int requestTokens) {
+  int getNextRequestDelayMs(int requestTokens) {
     _refillTokens();
 
     if (requestTokens <= _availableTokens) {
@@ -57,6 +68,12 @@ class RateLimiter {
     }
 
     final capacity = _currentCapacity;
+
+    // If the request is larger than capacity, it can never be fulfilled
+    if (capacity < requestTokens) {
+      return -1;
+    }
+
     final tokensNeeded = requestTokens - _availableTokens;
     final refillTimeMs = (tokensNeeded * 1000 / capacity).ceil();
 
@@ -80,7 +97,7 @@ class RateLimiter {
   /// Requests the specified number of tokens. Waits until the tokens are
   /// available before returning.
   Future<void> request(int requestTokens) async {
-    final delayMs = _getNextRequestDelayMs(requestTokens);
+    final delayMs = getNextRequestDelayMs(requestTokens);
 
     if (delayMs > 0) {
       await Future<void>.delayed(Duration(milliseconds: delayMs));

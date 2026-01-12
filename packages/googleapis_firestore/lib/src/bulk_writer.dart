@@ -1,10 +1,10 @@
 part of 'firestore.dart';
 
 /// The maximum number of writes that can be in a single batch.
-const int _maxBatchSize = 20;
+const int _kMaxBatchSize = 20;
 
 /// The maximum number of writes that can be in a batch being retried.
-const int _retryMaxBatchSize = 10;
+const int _kRetryMaxBatchSize = 10;
 
 /// The starting maximum number of operations per second as allowed by the
 /// 500/50/5 rule.
@@ -184,11 +184,14 @@ class _BulkWriterOperation {
 
 /// A batch used by BulkWriter for committing operations.
 class _BulkCommitBatch extends WriteBatch {
-  _BulkCommitBatch(super.firestore, this.maxBatchSize) : super._();
+  _BulkCommitBatch(super.firestore, this._maxBatchSize) : super._();
 
-  final int maxBatchSize;
+  int _maxBatchSize;
   final Set<String> _docPaths = {};
   final List<_BulkWriterOperation> pendingOps = [];
+
+  /// Gets the current maximum batch size.
+  int get maxBatchSize => _maxBatchSize;
 
   /// Checks if this batch contains a write to the given document.
   bool has(DocumentReference<Object?> documentRef) {
@@ -196,7 +199,7 @@ class _BulkCommitBatch extends WriteBatch {
   }
 
   /// Returns true if the batch is full.
-  bool get isFull => pendingOps.length >= maxBatchSize;
+  bool get isFull => pendingOps.length >= _maxBatchSize;
 
   /// Adds an operation to this batch.
   void processOperation(_BulkWriterOperation op) {
@@ -211,11 +214,11 @@ class _BulkCommitBatch extends WriteBatch {
   /// Dynamically sets the maximum batch size for this batch.
   /// Used to limit retry batches to a smaller size.
   void setMaxBatchSize(int size) {
-    // Only update if not already at this size and not larger than current
-    if (size < maxBatchSize && pendingOps.length <= size) {
-      // Create a new batch with the smaller size
-      // This is used by retry logic to ensure batches stay under 10MiB
-    }
+    assert(
+      pendingOps.length <= size,
+      'New batch size cannot be less than the number of enqueued writes',
+    );
+    _maxBatchSize = size;
   }
 
   /// Commits this batch using batchWrite API and handles individual results.
@@ -378,7 +381,7 @@ class BulkWriter {
 
     // Ensure batch size doesn't exceed rate limit
     if (initialOpsPerSecond < _maxBatchSize) {
-      _currentMaxBatchSize = initialOpsPerSecond;
+      _maxBatchSize = initialOpsPerSecond;
     }
 
     _rateLimiter = RateLimiter(
@@ -395,13 +398,14 @@ class BulkWriter {
   /// Rate limiter for throttling operations.
   late final RateLimiter _rateLimiter;
 
-  /// The maximum batch size (can be reduced based on rate limiting).
-  int _currentMaxBatchSize = _maxBatchSize;
+  /// The maximum number of writes that can be in a single batch.
+  /// Visible for testing.
+  int _maxBatchSize = _kMaxBatchSize;
 
   /// The batch currently being filled with operations.
   late _BulkCommitBatch _bulkCommitBatch = _BulkCommitBatch(
     firestore,
-    _currentMaxBatchSize,
+    _maxBatchSize,
   );
 
   /// Represents the tail of all active BulkWriter operations.
@@ -425,9 +429,6 @@ class BulkWriter {
 
   /// User-provided error callback. Returns true to retry, false otherwise.
   bool Function(BulkWriterError) _errorCallback = _defaultErrorCallback;
-
-  /// Whether a custom error handler has been set.
-  bool _errorHandlerSet = false;
 
   /// Default error callback that retries UNAVAILABLE and ABORTED up to 10 times.
   /// Also retries INTERNAL errors for delete operations.
@@ -484,8 +485,8 @@ class BulkWriter {
   ///   return false; // Don't retry
   /// });
   /// ```
+  // ignore: use_setters_to_change_properties
   void onWriteError(bool Function(BulkWriterError) callback) {
-    _errorHandlerSet = true;
     _errorCallback = callback;
   }
 
@@ -643,12 +644,8 @@ class BulkWriter {
     _verifyNotClosed();
     _scheduleCurrentBatch(flush: true);
 
-    // Mark the most recent operation as flushed
-    if (_bulkCommitBatch.pendingOps.isNotEmpty) {
-      _bulkCommitBatch.pendingOps.last.markFlushed();
-    }
-
-    // Also mark buffered operations
+    // Mark the most recent operation as flushed to ensure that the batch
+    // containing it will be sent once it's popped from the buffer.
     if (_bufferedOperations.isNotEmpty) {
       _bufferedOperations.last.operation.markFlushed();
     }
@@ -700,26 +697,7 @@ class BulkWriter {
       successCallback: _successCallback,
     );
 
-    // Swallow the error if the developer has set an error listener. This
-    // prevents unhandled Future errors from being thrown if a floating
-    // BulkWriter operation fails when an error handler is specified.
-    //
-    // We set up the error handler BEFORE potentially triggering batch send
-    // to ensure it's in place when errors occur.
-    final userFuture = completer.future.then<WriteResult>(
-      (value) => value,
-      onError: (Object err, StackTrace stackTrace) {
-        if (!_errorHandlerSet) {
-          // Re-throw if no custom error handler is set
-          // This ensures the error propagates to the caller
-          Error.throwWithStackTrace(err, stackTrace);
-        }
-        // When error handler is set, return the rejected future itself
-        // This prevents unhandled rejections while still allowing the
-        // future to reject (so tests can await expectLater(future, throwsA(...)))
-        return completer.future;
-      },
-    );
+    final userFuture = completer.future;
 
     // Advance the `_lastOperation` pointer. This ensures that `_lastOperation`
     // only resolves when both the previous and the current write resolve.
@@ -752,8 +730,12 @@ class BulkWriter {
         // Decrement pending ops count and process buffered operations on error
         _pendingOpsCount--;
         _processBufferedOperations();
-        // Re-throw to propagate the error
-        Error.throwWithStackTrace(err, stackTrace);
+        // Re-throw to propagate the error with stack trace
+        if (err is Exception || err is Error) {
+          Error.throwWithStackTrace(err, stackTrace);
+        } else {
+          throw Exception(err.toString());
+        }
       },
     );
   }
@@ -767,11 +749,10 @@ class BulkWriter {
     // Retried writes are sent with a batch size of 10 in order to guarantee
     // that the batch is under the 10MiB limit.
     if (op.backoffDuration > 0) {
-      if (_bulkCommitBatch.pendingOps.length >= _retryMaxBatchSize) {
+      if (_bulkCommitBatch.pendingOps.length >= _kRetryMaxBatchSize) {
         _scheduleCurrentBatch();
       }
-      _bulkCommitBatch.setMaxBatchSize(_retryMaxBatchSize);
-      _currentMaxBatchSize = _retryMaxBatchSize;
+      _bulkCommitBatch.setMaxBatchSize(_kRetryMaxBatchSize);
     }
 
     // If the current batch already contains this document, send it first
@@ -808,15 +789,14 @@ class BulkWriter {
 
   /// Sends the current batch and creates a new one.
   void _scheduleCurrentBatch({bool flush = false}) {
-    final batchToSend = _bulkCommitBatch;
-    if (batchToSend.pendingOps.isEmpty) {
+    if (_bulkCommitBatch.pendingOps.isEmpty) {
       return;
     }
 
-    final opsToSend = batchToSend.pendingOps.length;
+    final batchToSend = _bulkCommitBatch;
 
     // Create a new batch for future operations
-    _bulkCommitBatch = _BulkCommitBatch(firestore, _currentMaxBatchSize);
+    _bulkCommitBatch = _BulkCommitBatch(firestore, _maxBatchSize);
 
     // Use the write with the longest backoff duration when determining backoff
     final highestBackoffDuration = batchToSend.pendingOps.fold<int>(
@@ -825,33 +805,48 @@ class BulkWriter {
     );
     final backoffMsWithJitter = _applyJitter(highestBackoffDuration);
 
-    // Chain the batch commit to the tail of operations
-    _lastOperation = _lastOperation.then((_) async {
-      try {
-        // Apply backoff delay if needed
-        if (backoffMsWithJitter > 0) {
-          await Future<void>.delayed(
-            Duration(milliseconds: backoffMsWithJitter),
-          );
-        }
+    // Apply backoff delay if needed, then send the batch
+    if (backoffMsWithJitter > 0) {
+      unawaited(
+        Future<void>.delayed(
+          Duration(milliseconds: backoffMsWithJitter),
+        ).then((_) => _sendBatch(batchToSend, flush)),
+      );
+    } else {
+      unawaited(_sendBatch(batchToSend, flush));
+    }
+  }
 
-        // Rate limit before sending
-        await _rateLimiter.request(opsToSend);
+  /// Sends the provided batch once the rate limiter does not require any delay.
+  Future<void> _sendBatch(_BulkCommitBatch batch, bool flush) async {
+    // Check if we're under the rate limit
+    final underRateLimit = _rateLimiter.tryMakeRequest(batch.pendingOps.length);
 
-        await batchToSend.bulkCommit();
+    if (underRateLimit) {
+      // We have capacity - send the batch immediately
+      await batch.bulkCommit();
 
-        // If flush was requested, schedule any remaining batches
-        if (flush) {
-          _scheduleCurrentBatch(flush: true);
-        }
-      } catch (error) {
-        // Errors are already handled in bulkCommit()
-        // This catch prevents unhandled rejections
+      // If flush was requested, schedule any remaining batches
+      if (flush) {
+        _scheduleCurrentBatch(flush: true);
       }
-      // Note: _pendingOpsCount is decremented in the .then() chain in _enqueue()
-      // when each operation completes, not here. This ensures proper tracking
-      // of pending operations.
-    });
+    } else {
+      // We need to wait - get the delay and schedule a retry
+      final delayMs = _rateLimiter.getNextRequestDelayMs(
+        batch.pendingOps.length,
+      );
+
+      if (delayMs > 0) {
+        // Schedule another attempt after the delay
+        unawaited(
+          Future<void>.delayed(
+            Duration(milliseconds: delayMs),
+          ).then((_) => _sendBatch(batch, flush)),
+        );
+      }
+      // Note: If delayMs is -1, the request can never be fulfilled with current
+      // capacity. This shouldn't happen in practice since batch sizes are limited.
+    }
   }
 
   /// Adds a 30% jitter to the provided backoff.
@@ -905,7 +900,7 @@ class BulkWriter {
       _bulkCommitBatch.pendingOps.isEmpty,
       'Cannot change batch size when there are pending operations',
     );
-    _currentMaxBatchSize = size;
+    _maxBatchSize = size;
     _bulkCommitBatch = _BulkCommitBatch(firestore, size);
   }
 }
