@@ -18,8 +18,8 @@ List<Map<String, dynamic>> bundleToElementArray(Uint8List buffer) {
     // Read the length prefix
     final lengthBuffer = StringBuffer();
     while (offset < str.length &&
-           str.codeUnitAt(offset) >= '0'.codeUnitAt(0) &&
-           str.codeUnitAt(offset) <= '9'.codeUnitAt(0)) {
+        str.codeUnitAt(offset) >= '0'.codeUnitAt(0) &&
+        str.codeUnitAt(offset) <= '9'.codeUnitAt(0)) {
       lengthBuffer.write(str[offset]);
       offset++;
     }
@@ -55,10 +55,13 @@ void verifyMetadata(
   expect(meta['id'], equals(testBundleId));
   expect(meta['version'], equals(testBundleVersion));
   expect(meta['totalDocuments'], equals(totalDocuments));
-  expect(meta['createTime'], equals({
-    'seconds': createTime.seconds.toString(),
-    'nanos': createTime.nanoseconds,
-  }));
+  expect(
+    meta['createTime'],
+    equals({
+      'seconds': createTime.seconds.toString(),
+      'nanos': createTime.nanoseconds,
+    }),
+  );
 }
 
 void main() {
@@ -67,9 +70,7 @@ void main() {
 
     setUp(() {
       firestore = Firestore(
-        settings: const Settings(
-          projectId: 'test-project',
-        ),
+        settings: const Settings(projectId: 'test-project'),
       );
     });
 
@@ -80,8 +81,9 @@ void main() {
     test('succeeds to read length prefixed json with testing function', () {
       const bundleString =
           '20{"a":"string value"}9{"b":123}26{"c":{"d":"nested value"}}';
-      final elements =
-          bundleToElementArray(Uint8List.fromList(bundleString.codeUnits));
+      final elements = bundleToElementArray(
+        Uint8List.fromList(bundleString.codeUnits),
+      );
       expect(
         elements,
         equals([
@@ -147,34 +149,42 @@ void main() {
       // Verify doc1Meta and doc1Snap
       final docMeta = elements[1]['documentMetadata'] as Map<String, dynamic>;
       final docSnap = elements[2]['document'] as Map<String, dynamic>;
-      expect(docMeta, equals({
-        'name': '$databaseRoot/documents/collectionId/doc1',
-        'readTime': {
-          'seconds': snap1.readTime!.seconds.toString(),
-          'nanos': snap1.readTime!.nanoseconds,
-        },
-        'exists': true,
-      }));
-      expect(docSnap['name'], equals('$databaseRoot/documents/collectionId/doc1'));
+      expect(
+        docMeta,
+        equals({
+          'name': '$databaseRoot/documents/collectionId/doc1',
+          'readTime': {
+            'seconds': snap1.readTime!.seconds.toString(),
+            'nanos': snap1.readTime!.nanoseconds,
+          },
+          'exists': true,
+        }),
+      );
+      expect(
+        docSnap['name'],
+        equals('$databaseRoot/documents/collectionId/doc1'),
+      );
       expect(docSnap['fields'], isNotNull);
     });
 
     test('succeeds with query snapshots', () {
       final bundle = firestore.bundle(testBundleId);
 
-      final snap = firestore.snapshot_(
-        firestore_v1.Document(
-          name: '$databaseRoot/documents/collectionId/doc1',
-          fields: {
-            'foo': firestore_v1.Value(stringValue: 'value'),
-          },
-          createTime: '1970-01-01T00:00:01.002Z',
-          updateTime: '1970-01-01T00:00:03.000004Z',
-        ),
-        Timestamp(seconds: 1577840405, nanoseconds: 6),
-      ) as QueryDocumentSnapshot<Object?>;
+      final snap =
+          firestore.snapshot_(
+                firestore_v1.Document(
+                  name: '$databaseRoot/documents/collectionId/doc1',
+                  fields: {'foo': firestore_v1.Value(stringValue: 'value')},
+                  createTime: '1970-01-01T00:00:01.002Z',
+                  updateTime: '1970-01-01T00:00:03.000004Z',
+                ),
+                Timestamp(seconds: 1577840405, nanoseconds: 6),
+              )
+              as QueryDocumentSnapshot<Object?>;
 
-      final query = firestore.collection('collectionId').where('value', WhereFilter.equal, 'string');
+      final query = firestore
+          .collection('collectionId')
+          .where('value', WhereFilter.equal, 'string');
       final querySnapshot = firestore.createQuerySnapshot(
         query: query,
         readTime: snap.readTime!,
@@ -199,41 +209,64 @@ void main() {
       verifyMetadata(meta, snap.readTime!, 1);
 
       // Verify named query
-      final namedQuery = elements.firstWhere(
-        (e) => e.containsKey('namedQuery') &&
-               (e['namedQuery'] as Map<String, dynamic>)['name'] == 'test-query',
-      )['namedQuery'] as Map<String, dynamic>;
+      final namedQuery =
+          elements.firstWhere(
+                (e) =>
+                    e.containsKey('namedQuery') &&
+                    (e['namedQuery'] as Map<String, dynamic>)['name'] ==
+                        'test-query',
+              )['namedQuery']
+              as Map<String, dynamic>;
 
-      final newNamedQuery = elements.firstWhere(
-        (e) => e.containsKey('namedQuery') &&
-               (e['namedQuery'] as Map<String, dynamic>)['name'] == 'test-query-new',
-      )['namedQuery'] as Map<String, dynamic>;
+      final newNamedQuery =
+          elements.firstWhere(
+                (e) =>
+                    e.containsKey('namedQuery') &&
+                    (e['namedQuery'] as Map<String, dynamic>)['name'] ==
+                        'test-query-new',
+              )['namedQuery']
+              as Map<String, dynamic>;
 
       expect(namedQuery['name'], equals('test-query'));
-      expect(namedQuery['readTime'], equals({
-        'seconds': snap.readTime!.seconds.toString(),
-        'nanos': snap.readTime!.nanoseconds,
-      }));
+      expect(
+        namedQuery['readTime'],
+        equals({
+          'seconds': snap.readTime!.seconds.toString(),
+          'nanos': snap.readTime!.nanoseconds,
+        }),
+      );
 
       expect(newNamedQuery['name'], equals('test-query-new'));
-      expect(newNamedQuery['readTime'], equals({
-        'seconds': snap.readTime!.seconds.toString(),
-        'nanos': snap.readTime!.nanoseconds,
-      }));
+      expect(
+        newNamedQuery['readTime'],
+        equals({
+          'seconds': snap.readTime!.seconds.toString(),
+          'nanos': snap.readTime!.nanoseconds,
+        }),
+      );
 
       // Verify docMeta and docSnap
       final docMeta = elements[3]['documentMetadata'] as Map<String, dynamic>;
       final docSnap = elements[4]['document'] as Map<String, dynamic>;
 
       final queries = List<String>.from(docMeta['queries'] as List)..sort();
-      expect(docMeta['name'], equals('$databaseRoot/documents/collectionId/doc1'));
-      expect(docMeta['readTime'], equals({
-        'seconds': snap.readTime!.seconds.toString(),
-        'nanos': snap.readTime!.nanoseconds,
-      }));
+      expect(
+        docMeta['name'],
+        equals('$databaseRoot/documents/collectionId/doc1'),
+      );
+      expect(
+        docMeta['readTime'],
+        equals({
+          'seconds': snap.readTime!.seconds.toString(),
+          'nanos': snap.readTime!.nanoseconds,
+        }),
+      );
       expect(docMeta['exists'], equals(true));
       expect(queries, equals(['test-query', 'test-query-new']));
-      expect(docSnap['name'], equals('$databaseRoot/documents/collectionId/doc1'));
+      expect(
+        docSnap['name'],
+        equals('$databaseRoot/documents/collectionId/doc1'),
+      );
     });
 
     test('succeeds with multiple calls to build()', () {
@@ -264,15 +297,21 @@ void main() {
       // Verify doc1Meta and doc1Snap
       final doc1Meta = elements[1]['documentMetadata'] as Map<String, dynamic>;
       final doc1Snap = elements[2]['document'] as Map<String, dynamic>;
-      expect(doc1Meta, equals({
-        'name': '$databaseRoot/documents/collectionId/doc1',
-        'readTime': {
-          'seconds': snap1.readTime!.seconds.toString(),
-          'nanos': snap1.readTime!.nanoseconds,
-        },
-        'exists': true,
-      }));
-      expect(doc1Snap['name'], equals('$databaseRoot/documents/collectionId/doc1'));
+      expect(
+        doc1Meta,
+        equals({
+          'name': '$databaseRoot/documents/collectionId/doc1',
+          'readTime': {
+            'seconds': snap1.readTime!.seconds.toString(),
+            'nanos': snap1.readTime!.nanoseconds,
+          },
+          'exists': true,
+        }),
+      );
+      expect(
+        doc1Snap['name'],
+        equals('$databaseRoot/documents/collectionId/doc1'),
+      );
 
       // Add another document
       final snap2 = firestore.snapshot_(
@@ -300,17 +339,24 @@ void main() {
       expect(newElements.sublist(1, 3), equals(elements.sublist(1)));
 
       // Verify doc2Meta and doc2Snap
-      final doc2Meta = newElements[3]['documentMetadata'] as Map<String, dynamic>;
+      final doc2Meta =
+          newElements[3]['documentMetadata'] as Map<String, dynamic>;
       final doc2Snap = newElements[4]['document'] as Map<String, dynamic>;
-      expect(doc2Meta, equals({
-        'name': '$databaseRoot/documents/collectionId/doc2',
-        'readTime': {
-          'seconds': snap2.readTime!.seconds.toString(),
-          'nanos': snap2.readTime!.nanoseconds,
-        },
-        'exists': true,
-      }));
-      expect(doc2Snap['name'], equals('$databaseRoot/documents/collectionId/doc2'));
+      expect(
+        doc2Meta,
+        equals({
+          'name': '$databaseRoot/documents/collectionId/doc2',
+          'readTime': {
+            'seconds': snap2.readTime!.seconds.toString(),
+            'nanos': snap2.readTime!.nanoseconds,
+          },
+          'exists': true,
+        }),
+      );
+      expect(
+        doc2Snap['name'],
+        equals('$databaseRoot/documents/collectionId/doc2'),
+      );
     });
 
     test('succeeds when nothing is added', () {
@@ -371,28 +417,40 @@ void main() {
       // Verify doc1Meta and doc1Snap
       var docMeta = elements[1]['documentMetadata'] as Map<String, dynamic>;
       var docSnap = elements[2]['document'] as Map<String, dynamic>;
-      expect(docMeta, equals({
-        'name': '$databaseRoot/documents/collectionId_A/doc1',
-        'readTime': {
-          'seconds': snap1.readTime!.seconds.toString(),
-          'nanos': snap1.readTime!.nanoseconds,
-        },
-        'exists': true,
-      }));
-      expect(docSnap['name'], equals('$databaseRoot/documents/collectionId_A/doc1'));
+      expect(
+        docMeta,
+        equals({
+          'name': '$databaseRoot/documents/collectionId_A/doc1',
+          'readTime': {
+            'seconds': snap1.readTime!.seconds.toString(),
+            'nanos': snap1.readTime!.nanoseconds,
+          },
+          'exists': true,
+        }),
+      );
+      expect(
+        docSnap['name'],
+        equals('$databaseRoot/documents/collectionId_A/doc1'),
+      );
 
       // Verify doc2Meta and doc2Snap
       docMeta = elements[3]['documentMetadata'] as Map<String, dynamic>;
       docSnap = elements[4]['document'] as Map<String, dynamic>;
-      expect(docMeta, equals({
-        'name': '$databaseRoot/documents/collectionId_B/doc1',
-        'readTime': {
-          'seconds': snap2.readTime!.seconds.toString(),
-          'nanos': snap2.readTime!.nanoseconds,
-        },
-        'exists': true,
-      }));
-      expect(docSnap['name'], equals('$databaseRoot/documents/collectionId_B/doc1'));
+      expect(
+        docMeta,
+        equals({
+          'name': '$databaseRoot/documents/collectionId_B/doc1',
+          'readTime': {
+            'seconds': snap2.readTime!.seconds.toString(),
+            'nanos': snap2.readTime!.nanoseconds,
+          },
+          'exists': true,
+        }),
+      );
+      expect(
+        docSnap['name'],
+        equals('$databaseRoot/documents/collectionId_B/doc1'),
+      );
     });
   });
 }

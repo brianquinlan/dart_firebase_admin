@@ -450,10 +450,7 @@ class BundleBuilder {
   /// included in the bundle.
   ///
   /// Throws [ArgumentError] if a query with the same name was already added.
-  void addQuery(
-    String queryName,
-    QuerySnapshot<Object?> querySnapshot,
-  ) {
+  void addQuery(String queryName, QuerySnapshot<Object?> querySnapshot) {
     if (queryName.isEmpty) {
       throw ArgumentError('queryName must not be empty');
     }

@@ -19,8 +19,8 @@ List<Map<String, dynamic>> bundleToElementArray(Uint8List buffer) {
     // Read the length prefix
     final lengthBuffer = StringBuffer();
     while (offset < str.length &&
-           str.codeUnitAt(offset) >= '0'.codeUnitAt(0) &&
-           str.codeUnitAt(offset) <= '9'.codeUnitAt(0)) {
+        str.codeUnitAt(offset) >= '0'.codeUnitAt(0) &&
+        str.codeUnitAt(offset) <= '9'.codeUnitAt(0)) {
       lengthBuffer.write(str[offset]);
       offset++;
     }
@@ -130,24 +130,29 @@ void main() {
       expect(elements.length, equals(6));
 
       // Verify named query exists
-      final namedQuery = elements.firstWhere(
-        (e) => e.containsKey('namedQuery'),
-      )['namedQuery'] as Map<String, dynamic>;
+      final namedQuery =
+          elements.firstWhere((e) => e.containsKey('namedQuery'))['namedQuery']
+              as Map<String, dynamic>;
 
       expect(namedQuery['name'], equals('test-query'));
 
       // Verify documents have queries array
       final docsWithQueries = elements
-          .where((e) =>
-              e.containsKey('documentMetadata') &&
-              (e['documentMetadata'] as Map<String, dynamic>)
-                  .containsKey('queries'))
+          .where(
+            (e) =>
+                e.containsKey('documentMetadata') &&
+                (e['documentMetadata'] as Map<String, dynamic>).containsKey(
+                  'queries',
+                ),
+          )
           .toList();
 
       expect(docsWithQueries.length, equals(2));
 
       for (final doc in docsWithQueries) {
-        final queries = (doc['documentMetadata'] as Map<String, dynamic>)['queries'] as List;
+        final queries =
+            (doc['documentMetadata'] as Map<String, dynamic>)['queries']
+                as List;
         expect(queries, contains('test-query'));
       }
 
@@ -166,7 +171,11 @@ void main() {
 
       // Create two queries that both include the same document
       final query1 = collection.where('value', WhereFilter.equal, 'test');
-      final query2 = collection.where('count', WhereFilter.greaterThanOrEqual, 5);
+      final query2 = collection.where(
+        'count',
+        WhereFilter.greaterThanOrEqual,
+        5,
+      );
 
       final querySnapshot1 = await query1.get();
       final querySnapshot2 = await query2.get();
@@ -179,9 +188,11 @@ void main() {
       final elements = bundleToElementArray(bundle.build());
 
       // Verify the document metadata has both queries
-      final docMeta = elements.firstWhere(
-        (e) => e.containsKey('documentMetadata'),
-      )['documentMetadata'] as Map<String, dynamic>;
+      final docMeta =
+          elements.firstWhere(
+                (e) => e.containsKey('documentMetadata'),
+              )['documentMetadata']
+              as Map<String, dynamic>;
 
       final queries = List<String>.from(docMeta['queries'] as List);
       queries.sort();

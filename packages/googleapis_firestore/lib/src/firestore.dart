@@ -586,58 +586,20 @@ class Firestore {
   ///
   /// This is an internal test helper method that allows creating snapshots
   /// from raw document protos without actual Firestore operations.
-  /// Similar to the Node.js SDK's `snapshot_()` method.
   ///
-  /// @internal
+  /// @nodoc
   @visibleForTesting
   DocumentSnapshot<Object?> snapshot_(
     firestore_v1.Document document,
     Timestamp readTime,
   ) {
-    // Extract the relative path from the full resource name
-    // Format: projects/{project}/databases/{database}/documents/{document_path}
-    final fullName = document.name!;
-    final documentsIndex = fullName.indexOf('/documents/');
-    final relativePath = documentsIndex >= 0
-        ? fullName.substring(documentsIndex + '/documents/'.length)
-        : fullName;
-
-    final ref = doc(relativePath);
-    final fieldsProto = document.fields != null
-        ? firestore_v1.MapValue(fields: document.fields)
-        : null;
-
-    // Parse timestamps from ISO 8601 strings
-    Timestamp? parseTimestamp(String? isoString) {
-      if (isoString == null) return null;
-      final dt = DateTime.parse(isoString);
-      return Timestamp(
-        seconds: dt.millisecondsSinceEpoch ~/ 1000,
-        nanoseconds: (dt.microsecondsSinceEpoch % 1000000) * 1000,
-      );
-    }
-
-    final createTime = parseTimestamp(document.createTime);
-    final updateTime = parseTimestamp(document.updateTime);
-
-    // Return QueryDocumentSnapshot if document exists (has fields)
-    if (fieldsProto != null && createTime != null && updateTime != null) {
-      return QueryDocumentSnapshot<Object?>._(
-        ref: ref,
-        fieldsProto: fieldsProto,
-        readTime: readTime,
-        createTime: createTime,
-        updateTime: updateTime,
-      );
-    }
-
-    // Return regular DocumentSnapshot for non-existent documents
-    return DocumentSnapshot<Object?>._(
-      ref: ref,
-      fieldsProto: fieldsProto,
-      readTime: readTime,
-      createTime: createTime,
-      updateTime: updateTime,
+    return DocumentSnapshot._fromDocument(
+      document,
+      _toGoogleDateTime(
+        seconds: readTime.seconds,
+        nanoseconds: readTime.nanoseconds,
+      ),
+      this,
     );
   }
 
