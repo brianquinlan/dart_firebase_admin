@@ -575,9 +575,17 @@ class BulkWriter {
   ///     print('Write failed with: $err');
   ///   });
   /// ```
-  Future<WriteResult> set<T>(DocumentReference<T> ref, T data) {
+  Future<WriteResult> set<T>(
+    DocumentReference<T> ref,
+    T data, {
+    SetOptions? options,
+  }) {
     _verifyNotClosed();
-    return _enqueue(ref, 'set', (batch) => batch.set(ref, data));
+    return _enqueue(
+      ref,
+      'set',
+      (batch) => batch.set(ref, data, options: options),
+    );
   }
 
   /// Update fields of the document referred to by the provided

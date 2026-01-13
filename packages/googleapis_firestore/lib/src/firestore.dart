@@ -3,6 +3,7 @@ import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 import 'package:googleapis/firestore/v1.dart' as firestore_v1;
 import 'package:googleapis_auth/googleapis_auth.dart'
@@ -13,11 +14,11 @@ import 'package:http/http.dart'
     show BaseRequest, StreamedResponse, ByteStream, BaseClient, Client;
 import 'package:intl/intl.dart';
 import 'package:meta/meta.dart';
-
 import 'backoff.dart';
 import 'environment.dart';
 
 part 'aggregate.dart';
+part 'bulk_writer.dart';
 part 'collection_group.dart';
 part 'convert.dart';
 part 'document.dart';
@@ -29,6 +30,7 @@ part 'firestore_exception.dart';
 part 'firestore_http_client.dart';
 part 'geo_point.dart';
 part 'path.dart';
+part 'rate_limiter.dart';
 part 'reference/aggregate_query.dart';
 part 'reference/aggregate_query_snapshot.dart';
 part 'reference/collection_reference.dart';
@@ -44,6 +46,7 @@ part 'reference/query_snapshot.dart';
 part 'reference/query_util.dart';
 part 'reference/types.dart';
 part 'serializer.dart';
+part 'set_options.dart';
 part 'status_code.dart';
 part 'timestamp.dart';
 part 'transaction.dart';
@@ -51,8 +54,6 @@ part 'types.dart';
 part 'util.dart';
 part 'validate.dart';
 part 'write_batch.dart';
-part 'rate_limiter.dart';
-part 'bulk_writer.dart';
 
 /// Plain credentials object for service account authentication.
 ///
